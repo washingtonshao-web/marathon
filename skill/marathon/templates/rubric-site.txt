@@ -1,0 +1,1 @@
+RUBRIC: accuracy=20, coverage=20, visual_design=20, map_dataviz=10, phone=10, speed=10, interaction=10

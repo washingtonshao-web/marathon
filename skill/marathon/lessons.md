@@ -1,0 +1,19 @@
+# Best practices from earlier marathons
+
+Read at kickoff. Keep reusable rules here and project-specific observations in the project; keep this file concise.
+
+- Resume from STATE/CHARTER and the R/Q ledger, not memory. Keep working within budget; park user-only blockers and use ask at decision points. Answer questions directly and keep the current link visible.
+- Fix benchmark, targets and scope before comparable gate rounds. Trust computed score and actual invocation evidence, not a reviewer's PASS label. Keep the cross-model final gate and budget a fix wave after round 1.
+- Judge user outcomes, not paperwork. Require a rendered repro of the original defect, not only a unit test. Tests must navigate real menus, assert results/amounts and fail on refusals. Include natural user phrasing, end-to-end paths and the user's first ten minutes.
+- Sweep defect classes, not just instances. Add meaningful regression coverage; rerun affected scenarios when rules change. For money systems, reconcile stock/AR/AP/cash subledgers with GL on a full month-end copy.
+- Release checks must prove freshness, candidate/bundle identity, bot completion and budgets. Verify production as a logged-out visitor; never hand the user a repair command. Recover the real source before rebuilding a live tool.
+- Keep workers bounded and the lead thin. Store full reports separately; use measured usage, not final context size. Move bulk work to the configured worker subscription; rotate only at quiet points.
+- Keep the desktop quiet. Serialize browsers and performance tests; measure alone on quiet hardware and record reruns. Settle timed-out server jobs before starting another. Check existing user decisions before changing setup.
+- Games: choose art direction before asset work; inspect at gameplay distance. Verify source anatomy, framing, overlap and real rendered brightness. Test onboarding with cutscenes enabled, first-click/boot frame time and shader compilation. Separate render-pipeline changes from art waves; reward depth, not raw feature counts.
+- Sites: use proven map references, frozen coverage samples and random primary-source error audits. Check mobile layout and interactions after visual changes.
+- Research: reconstruct the user's original questions from transcripts; define each rate's start and end, the scope rule and what counts as critical in the reviewer prompt before gate 1. Deliver numbers, labelled estimates, probabilities and a decision. Use field terminology, a glossary and source counts; keep a parameter ledger and recompute dependents when assumptions change.
+- When scores plateau, attack the reviewer's largest gap or stop with concrete options. More polish is not evidence that the target is reachable. Set a raised pass mark from the expected gain of the planned work (merged gates swing about ±0.5 per round).
+- Every simulation command used by a test bot needs a reachable human UI path and a smoke test before the first gate.
+- (2026-10-20) Concurrent workers that share src/ leave HEAD unbuildable when the lead commits one worker's files that import another's uncommitted ones; build every commit from a clean worktree of that SHA before publishing or gating (node_modules via junction, removed with rmdir, never a recursive delete).
+- (2026-10-20) A historically framed game needs a sourced start state as its own data deliverable (cities per state, tiered armies, passes separate from cities) before balance work; tuning the placeholder start for four passes was wasted once the reviewer flagged the start as ahistorical.
+- (2026-10-20) Merged gates take the minimum per key; one reviewer's ceiling (here Opus ≤7) caps the total. Visual art plateaued at 5–6 after five map passes, and a painted-texture approach cannot reach 8: plan landform sprites or a deliberately illustrated map from the style board early.

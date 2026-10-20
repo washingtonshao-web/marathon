@@ -1,0 +1,1 @@
+RUBRIC: correctness=25, answers_questions=20, decision_value=20, depth=15, readability=10, presentation=10

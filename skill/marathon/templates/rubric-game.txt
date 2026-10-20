@@ -1,0 +1,1 @@
+RUBRIC: core_loop=20, visual_art=20, ui_ux=15, feel=15, content=10, performance=10, stability=10

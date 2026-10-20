@@ -1,0 +1,7 @@
+{
+  "schema": 2,
+  "slug": "marathon",
+  "mode": "static",
+  "access": "public",
+  "required_paths": ["/", "/zh/", "/docs/", "/zh/docs/", "/marathon-skill.zip"]
+}
