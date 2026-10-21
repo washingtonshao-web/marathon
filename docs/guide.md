@@ -42,7 +42,7 @@ Click your choices and Confirm, or reply in text ("agree", "2B"). If you do not 
 
 It keeps going on its own. A stop hook resumes the lead whenever it would otherwise stop, until one stop rule holds: the target is met, three rounds added fewer than 3 points in total, the budget is used, or only you can unblock it.
 
-Ask "progress" (or "进度") at any time for a short report: a status board, the lead's own assessment with a probability of reaching the target, and at most a few steering questions.
+Ask "progress" (or "进度") at any time for a short report: a status board, the lead's own assessment with a probability of reaching the target, and at most a few steering questions. Under the status board, a second block shows the last gate round key by key: each reviewer's own score, the score that was used (the lower one, or the lead's ruling) and whose it was, then which models actually ran: lead, workers with runs, hours and fallbacks, the Codex route (API or subscription), sub-agents and reviewers.
 
 ## Two modes
 

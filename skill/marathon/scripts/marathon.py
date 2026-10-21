@@ -88,11 +88,29 @@ def run_value(fm: dict, key: str) -> str:
     return prof["keys"].get(key, "")
 
 
+MODEL_NICE = {"gpt-6-astra": "GPT-6-Astra", "gpt-6.1-sol": "GPT-6.1-Sol", "gpt-6-sol": "GPT-6-Sol", "gpt-6-luna": "GPT-6-Luna",
+              "sonnet": "Claude Sonnet 5.5", "opus": "Claude Opus 5.5", "fable": "Claude Fable 5.1", "haiku": "Claude Haiku 5.5"}
+
+
 def describe_model(name: str) -> str:
     agent, model, eff = resolve_model(name)
-    nice = {"gpt-6-astra": "GPT-6-Astra", "gpt-6.1-sol": "GPT-6.1-Sol", "gpt-6-sol": "GPT-6-Sol", "gpt-6-luna": "GPT-6-Luna",
-            "sonnet": "Claude Sonnet 5.5", "opus": "Claude Opus 5.5", "fable": "Claude Fable 5.1", "haiku": "Claude Haiku 5.5"}
-    return nice.get(model, model) + (f" {eff}" if eff else "")
+    return MODEL_NICE.get(model, model) + (f" {eff}" if eff else "")
+
+
+def model_name(name: str, claude_prefix: bool = False) -> str:
+    """Ledger, transcript or reviewer label -> display name: 'claude-opus-5-5' / 'opus-5.5-xhigh' / 'astra-high' / 'gpt-6.1-sol'."""
+    n = (name or "").strip().lower()
+    eff = re.search(r"(?:^|-)(low|medium|high|xhigh|max)(?:-|$)", n)
+    eff = f" {eff.group(1)}" if eff else ""
+    m = re.match(r"(?:claude-)?(opus|sonnet|haiku|fable)(?:-(\d+)[-.](\d+))?", n)
+    if m:
+        base = f"{m[1].title()} {m[2]}.{m[3]}" if m[2] else MODEL_NICE[m[1]].removeprefix("Claude ")
+        return ("Claude " if claude_prefix else "") + base + eff
+    m = re.match(r"gpt-(\d+(?:\.\d+)?)-([a-z]+)", n)
+    if m:
+        return f"GPT-{m[1]}-{m[2].title()}{eff}"
+    base = SPOKEN.get(n.split("-")[0], n.split("-")[0])
+    return MODEL_NICE.get(MODEL_ALIASES[base][1], base) + eff if base in MODEL_ALIASES else (name or "?")
 
 
 def run_config(fm: dict, short: bool = False) -> list[str]:
@@ -771,6 +789,7 @@ def visual_block(d: Path, fm: dict, rows: list[dict]) -> list[str]:
             low = sorted(dims.items(), key=lambda kv: kv[1])[:2]
             out.append("Weakest   " + " · ".join(f"{k} {v:.1f}" + (f" (floor {floors[k]:g})" if k in floors and v < floors[k] else "")
                                                for k, v in low))
+        out += review_table(d, num[-1])[0]
     if fm.get("targets_met"):
         out.append(f"Targets   {fm['targets_met']}")
     return out
@@ -778,6 +797,170 @@ def visual_block(d: Path, fm: dict, rows: list[dict]) -> list[str]:
 
 def read_scores(d: Path) -> list[dict]:
     return [r for r in read_csv(d / "audits" / "scores.csv") if r.get("round")]
+
+
+def round_reviews(d: Path, row: dict) -> tuple[list[dict], list[dict], dict]:
+    """Each gate reviewer's own report for a scored round (same artifact), the confirming reviews, and the round's weights."""
+    try:
+        weights = json.loads(row.get("rubric") or "{}").get("weights") or {}
+    except ValueError:
+        weights = {}
+    try:
+        order = list(charter_rules(d)["weights"])
+    except (SystemExit, OSError):
+        order = []
+    weights = dict(sorted(weights.items(), key=lambda kv: (-kv[1], order.index(kv[0]) if kv[0] in order else len(order))))
+    art = (row.get("artifact") or "").removesuffix("-dirty")
+    reviews, confirms = [], []
+    for p in sorted((d / "audits" / f"round-{row['round']}").glob("*.md")):
+        text = p.read_text(encoding="utf-8-sig", errors="replace")
+        who = re.findall(r"^\s*REVIEWER:\s*(\S+)", text, re.M)   # the structured upper-case line, not prose like "Reviewer: fresh …"
+        if not who or p.name.upper().startswith("ADJUDICATION"):
+            continue
+        conf = re.findall(r"^\s*CONFIRM:\s*(\S+)", text, re.M)
+        if conf:
+            confirms.append({"reviewer": who[-1].lower(), "confirm": conf[-1].lower(), "file": p.name})
+            continue
+        r = parse_report(p, set(weights), set())
+        n = min(len(art), len(r["artifact"] or ""))
+        if r["dims"] and (not art or not r["artifact"] or (n >= 7 and art[:n] == r["artifact"][:n])):
+            reviews.append(r)
+    reviews.sort(key=lambda r: {"claude": 0, "gpt": 1}.get(reviewer_family(r["reviewer"]), 2))
+    return reviews, confirms, weights
+
+
+def weighted(dims: dict, weights: dict) -> float | None:
+    ks = [k for k in weights if dims.get(k) is not None]
+    return sum(weights[k] * dims[k] for k in ks) / sum(weights[k] for k in ks) * 10 if ks and sum(weights[k] for k in ks) else None
+
+
+def width(s: str) -> int:
+    """Characters a monospace block shows: Chinese characters take two cells."""
+    return sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in s)
+
+
+def cell(s: str, n: int, right: bool = False) -> str:
+    pad = " " * max(0, n - width(s))
+    return pad + s if right else s + pad
+
+
+def review_table(d: Path, row: dict) -> tuple[list[str], list[str]]:
+    """(two VISUAL lines, per-key table): each reviewer's scores beside the score used, and whose score it was."""
+    reviews, _, weights = round_reviews(d, row)
+    if not reviews:
+        return [], []
+    names = []
+    for r in reviews:
+        base = re.split(r"[-\d]", r["reviewer"] or "?")[0].title() or "?"
+        names.append(base if base not in names else f"{base}{sum(n.startswith(base) for n in names) + 1}")
+    try:
+        used = json.loads(row.get("dims") or "{}")
+        carried = json.loads(row.get("carried") or "{}")
+    except ValueError:
+        used, carried = {}, {}
+    ruled = "lead-ruling" in (row.get("reviewers") or "")
+    both = "same" if len(names) == 2 else "all same"
+    fmt = lambda v: "-" if v is None else f"{v:g}"
+    kw = max(8, min(13, max(len(k) for k in weights) if weights else 8))
+    line = lambda label, vals, u, src: cell(label, kw) + "".join(" " + cell(v, 5, True) for v in vals) + " " + cell(u, 5, True) + "  " + src
+    lines = [f"Gate round {row['round']} · each key uses the lower score" if len(names) == 2 else f"Gate round {row['round']} · each key uses the lowest score",
+             line("key", names, "used", "whose")]
+    n_ruled = 0
+    for k in weights:
+        vals, u = [r["dims"].get(k) for r in reviews], used.get(k)
+        present = [v for v in vals if v is not None]
+        took = [n for n, v in zip(names, vals) if v is not None and v == u]
+        if u is None:
+            src = "n/a"
+        elif took and len(present) > 1 and u > min(present):
+            src, n_ruled = "lead ruling", n_ruled + 1
+        elif len(took) == len(names) > 1:
+            src = both
+        elif took:
+            src = "+".join(took) + (" lower" if len(present) > 1 else "")
+        elif any(k in c and c[k] == u for c in carried.values()):
+            src = "carried"
+        else:
+            src, n_ruled = ("lead ruling" if ruled else "?"), n_ruled + 1
+        lines.append(line(k[:kw], [fmt(v) for v in vals], fmt(u), src))
+    tots = [weighted(r["dims"], weights) for r in reviews]
+    lines.append(line("total", ["-" if t is None else f"{t:.1f}" for t in tots], f"{float(row['total']):.1f}", "from used"))
+    crits = [r["critical"] for r in reviews]
+    crit, top = int(row.get("critical") or 0), max([c or 0 for c in crits])
+    took = [n for n, c in zip(names, crits) if c == crit]
+    src = ("lead ruling" if crit < top else both if len(took) == len(names) > 1 else "+".join(took) + " (more)" if took else "?")
+    lines.append(line("critical", [fmt(c) for c in crits], str(crit), src))
+    pend = "astra-pending" in (row.get("reviewers") or "")
+    visual = [f"Reviews   R{row['round']} " + " · ".join(f"{n} {'-' if t is None else f'{t:.1f}'}" for n, t in zip(names, tots))
+              + (" · Astra pending" if pend else ""),
+              f"Used      {float(row['total']):.1f} lower per key" + (f" · crit {top}→{crit}" if crit != top else "")
+              + (f" · {n_ruled} key{'s' if n_ruled > 1 else ''} ruled" if n_ruled else "")]
+    return visual, lines
+
+
+CODEX_ROUTES = {"api": "API", "subscription": "Codex subscription"}
+
+
+def models_lines(d: Path, fm: dict, rows: list[dict], usage: dict | None) -> list[str]:
+    """Which models actually ran: lead and Claude sub-agents from the transcripts, workers from workers.csv, reviewers from the gates."""
+    def by_model(models: dict) -> str:
+        top = sorted(((model_name(m), r["runs"]) for m, r in models.items() if not m.startswith("<")), key=lambda x: -x[1])
+        return " · ".join(f"{n} ×{c}" for n, c in top)
+    out = []
+    lead = {m: r for m, r in (usage or {}).get("lead", {}).get("models", {}).items() if not m.startswith("<")}
+    if lead:
+        out.append("Lead     " + " · ".join(model_name(m, True) for m in sorted(lead, key=lambda m: -lead[m]["runs"])))
+    else:
+        out.append("Lead     " + (fm.get("lead_verified") or ("GPT-6-Astra high (Codex)" if os.environ.get("CODEX_THREAD_ID") else "Claude Opus 5.5")
+                                  + " (requested; no Claude transcript)"))
+    ws = read_workers(d)
+    jobs = [r for r in ws if r.get("class") != "gate" and not (r.get("note") or "").startswith("bake-off ")]
+    try:
+        primary = model_key({"model": worker_chain(fm)[0]}).split("/")[0]
+    except SystemExit:
+        primary = ""
+    groups: dict = {}
+    for r in jobs:
+        if r.get("model"):
+            g = groups.setdefault(model_key(r), {"runs": 0, "min": 0.0, "row": r})
+            g["runs"] += 1
+            g["min"] += hours(r.get("minutes"))
+    running = sum(1 for r in jobs if r.get("status") not in TERMINAL_WORKER_STATUSES and not r.get("ended"))
+    blank = sum(1 for r in jobs if not r.get("model") and r.get("status") in TERMINAL_WORKER_STATUSES)
+    total_min = sum(g["min"] for g in groups.values())
+    out.append(f"Workers  {len(jobs)} runs · {total_min / 60:.1f} worker-h")
+    for key, g in sorted(groups.items(), key=lambda kv: -kv[1]["runs"]):
+        name, eff = key.split("/")
+        label = model_name(name) + ("" if eff == "unspecified" else " " + eff)
+        out.append(f"  {label:<17}{g['runs']:>3} · {g['min'] / 60:.1f} h" + (" fallback" if primary and name != primary else ""))
+    if running or blank:
+        out.append("  " + " · ".join(x for x in (f"{running} running" if running else "", f"{blank} ended, no model recorded" if blank else "") if x))
+    routes: dict = {}
+    for r in ws:   # workers and gate runs: which Codex account or API route each used
+        if model_family(r) == "codex":
+            route = CODEX_ROUTES.get(r.get("backend") or "", r.get("backend") or "not recorded")
+            routes[route] = routes.get(route, 0) + 1
+    if routes:
+        out.append("Codex    " + " · ".join(f"{k} ×{v}" for k, v in sorted(routes.items(), key=lambda kv: -kv[1])))
+    subs = (usage or {}).get("Claude sub-agents", {})
+    if subs.get("runs"):
+        out.append(f"Agents   {by_model(subs['models'])}")   # Claude sub-agents
+    runs: list = []   # consecutive rounds with the same reviewers
+    for r in rows:
+        labels = [x for x in (r.get("reviewers") or "").split("+") if x and x != "lead-ruling" and not x.startswith(("missing:", "astra-pending"))]
+        who = " + ".join(re.sub(r"GPT-6-(\w+)", r"\1", model_name(x)) for x in labels) or "?"   # Astra, not GPT-6-Astra: fits 40 columns
+        if runs and runs[-1][0] == who:
+            runs[-1][1].append(r["round"])
+        else:
+            runs.append((who, [r["round"]]))
+    for who, rnds in runs[-3:]:
+        span = f"Gate R{rnds[0]}" + (f"–R{rnds[-1]}" if len(rnds) > 1 else "")
+        out.append(f"{span:<8} {who}")
+    for r in rows:
+        if r["round"].isdigit() and (d / "audits" / f"round-{r['round']}").is_dir():
+            for c in round_reviews(d, r)[1]:
+                out.append(f"Confirm  R{r['round']} {model_name(c['reviewer'])} · " + ("critical dismissed" if c["confirm"] == "dismiss" else c["confirm"]))
+    return out
 
 
 def print_lines(lines, prefix: str = "  ") -> None:
@@ -826,6 +1009,11 @@ def cmd_report(a) -> None:
     rows = read_scores(d)
     print("VISUAL (paste as is inside a ``` block, right under the headline):")
     print_lines(visual_block(d, fm, rows))
+    u = usage_row(d)
+    num_rows = [r for r in rows if r["round"].isdigit()]
+    table = review_table(d, num_rows[-1])[1] if num_rows else []
+    print("REVIEWS AND MODELS (paste as is inside a second ``` block, right under the visual block):")
+    print_lines(table + ([""] if table else []) + models_lines(d, fm, rows, u))
 
     w, budget = work_hours(fm), hours(fm.get("budget_hours"))
     running = fm.get("status") == "running"
@@ -840,7 +1028,6 @@ def cmd_report(a) -> None:
             flags.append(f"budget used up: {w:.1f}/{budget:g} h, the BUDGET stop is due")
         elif w >= 0.8 * budget:
             flags.append(f"budget at {w / budget * 100:.0f}% ({w:.1f}/{budget:g} h)")
-    u = usage_row(d)
     if u:
         print(f"API-equivalent: lead {usage_dollars(u['lead'])} · Claude sub-agents {usage_dollars(u['Claude sub-agents'])} "
               f"(output lower bound) · Codex {u['Codex runs']['total']:,} tokens (subscription)")

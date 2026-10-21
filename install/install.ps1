@@ -8,8 +8,13 @@ foreach ($candidate in @('python3', 'python', 'py')) {
     if (-not $command) { continue }
     $prefix = @()
     if ($candidate -eq 'py') { $prefix = @('-3') }
-    & $command.Source @prefix -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)' 2>$null
-    if ($LASTEXITCODE -eq 0) {
+    # A stub that prints to stderr (the Microsoft Store python3 alias) throws under 'Stop': try the next candidate.
+    $ok = $false
+    try {
+        & $command.Source @prefix -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)' 2>$null
+        $ok = ($LASTEXITCODE -eq 0)
+    } catch { $ok = $false }
+    if ($ok) {
         $pythonCommand = $command.Source
         $pythonArgs = $prefix
         break

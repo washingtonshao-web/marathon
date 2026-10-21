@@ -17,3 +17,14 @@ Read at kickoff. Keep reusable rules here and project-specific observations in t
 - (2026-10-20) Concurrent workers that share src/ leave HEAD unbuildable when the lead commits one worker's files that import another's uncommitted ones; build every commit from a clean worktree of that SHA before publishing or gating (node_modules via junction, removed with rmdir, never a recursive delete).
 - (2026-10-20) A historically framed game needs a sourced start state as its own data deliverable (cities per state, tiered armies, passes separate from cities) before balance work; tuning the placeholder start for four passes was wasted once the reviewer flagged the start as ahistorical.
 - (2026-10-20) Merged gates take the minimum per key; one reviewer's ceiling (here Opus ≤7) caps the total. Visual art plateaued at 5–6 after five map passes, and a painted-texture approach cannot reach 8: plan landform sprites or a deliberately illustrated map from the style board early.
+- (2026-10-21) A CPU limiter that pins worker processes to idle priority corrupts any fps or startup measurement those workers take; exempt measurement workers or measure from the lead.
+- (2026-10-21) When an outcome (for example a victory path) stays near 0% after two tuning passes, stop tuning parameters and redesign the mechanism; tell the user the problem is structural.
+- (2026-10-21) A per-key floor with min-merge makes the stricter reviewer's weakest key the whole verdict; aim each wave at the single key below its floor.
+- (2026-10-21) A small planted-flaw evaluation set overfits within one prompt iteration; write a held-out split before the first prompt change and never select configurations on it.
+- (2026-10-21) Keep the grader model fixed for the whole run; a silent switch to a cheaper grader inflated recall on the same reviews. Calibrate any grader change on a shared sample first.
+- (2026-10-21) Network distance can beat front-end tuning: measure TCP connect time per host before shaving bytes, and serve distant users from a nearby mirror.
+- (2026-10-21) Keep gate reviewer credentials outside worker scratch folders and verify they exist before launch.
+- (2026-10-22) Low fps on a strong GPU may be Remote Desktop: check the display adapter before optimising, since a remote display adapter caps the refresh rate.
+- (2026-10-22) Judge visual pops on rendered video frames (20 fps or more), not on per-instance counters, which also count objects leaving the screen.
+- (2026-10-22) Adding stricter hard targets mid-project can lower the merged score while the user's complaints get fixed; report target status separately from the total.
+- (2026-10-22) codex_worker steer cannot queue while the worker runs; save the correction to a file and steer right after exit.

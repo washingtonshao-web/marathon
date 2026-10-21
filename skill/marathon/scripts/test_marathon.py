@@ -319,6 +319,53 @@ check("pace: rounds to pass, out of reach, reached", M.pace([70, 71, 72], 85)[0]
       and "out of reach" in M.pace([72, 72, 71], 85)[0] and "reached" in M.pace([80, 86], 85)[0]
       and M.pace([70], 85) is None and M.pace([60, 62, 64], 85)[1].startswith("keep going") and M.pace([70, 70.5, 71], 85)[1].startswith("plateau"))
 check("bookkeeping files are not 'uncommitted product'", "uncommitted: none" in out, out)
+check("report: reviews and models block after the visual block", "REVIEWS AND MODELS" in out
+      and re.search(r"Reviews   R\d+ Opus \d+\.\d", out) and re.search(r"Gate R1\S* +Opus", out) and "Workers  " in out, out)
+# reviewer scores beside the merged score, and which models ran
+RV = TMP / "rv"
+(RV / "audits" / "round-1").mkdir(parents=True)
+SITE_W = {"accuracy": 30.0, "coverage": 30.0, "visual_design": 10.0, "map_dataviz": 10.0, "phone": 5.0, "speed": 5.0, "interaction": 10.0}
+def rv_report(name, who, scores, crit, art="0a1b2c3d4e5f6a7b", extra=""):
+    (RV / "audits" / "round-1" / name).write_text(f"{extra}notes\nREVIEWER: {who}\nARTIFACT: {art}\nSCORES: {scores}\nVERDICT: FAIL critical={crit} major=6\n", encoding="utf-8")
+rv_report("opus.md", "opus-5.5-xhigh", "accuracy=7, coverage=7, visual_design=8, map_dataviz=7, phone=7, speed=8, interaction=7", 0)
+rv_report("astra.md", "astra-high", "accuracy=6, coverage=6, visual_design=7, map_dataviz=7, phone=7, speed=8, interaction=7", 2)
+rv_report("old.md", "sonnet", "accuracy=1, coverage=1, visual_design=1, map_dataviz=1, phone=1, speed=1, interaction=1", 9, art="1234567")
+(RV / "audits" / "round-1" / "ADJUDICATION.md").write_text("CRITICAL = 0 because fixed in 592300d\nCONFIRMED BY audits/round-1/confirm.md\n", encoding="utf-8")
+(RV / "audits" / "round-1" / "confirm.md").write_text("Reviewer: fresh Opus 5.5 agent\n\nREVIEWER: opus-5.5-confirm\nCONFIRM: dismiss\n", encoding="utf-8")
+RV_ROW = {"round": "1", "reviewers": "opus-5.5-xhigh+astra-high+lead-ruling", "artifact": "0a1b2c3d4e5f6a7b",
+          "total": "64.5", "critical": "0", "major": "6", "carried": "{}", "rubric": json.dumps({"weights": SITE_W}, sort_keys=True),
+          "dims": json.dumps({"accuracy": 6.0, "coverage": 6.0, "visual_design": 7.0, "map_dataviz": 7.0, "phone": 7.0, "speed": 8.0, "interaction": 7.0})}
+vis_rv, tab_rv = M.review_table(RV, RV_ROW)
+check("reviews: each reviewer's weighted total and the score used", vis_rv == ["Reviews   R1 Opus 71.5 · Astra 64.5", "Used      64.5 lower per key · crit 2→0"], vis_rv)
+check("reviews: plain table says whose score was used", tab_rv[:2] == ["Gate round 1 · each key uses the lower score", "key            Opus Astra  used  whose"]
+      and re.search(r"^accuracy\s+7\s+6\s+6  Astra lower$", "\n".join(tab_rv), re.M) and re.search(r"^speed\s+8\s+8\s+8  same$", "\n".join(tab_rv), re.M)
+      and re.search(r"^total\s+71\.5\s+64\.5\s+64\.5  from used$", "\n".join(tab_rv), re.M), tab_rv)
+check("reviews: heaviest keys first, stale-artifact report left out", tab_rv[2].startswith("accuracy") and len(tab_rv) == 11, tab_rv)
+check("reviews: lowered critical shows the lead ruling", tab_rv[-1].split()[:4] == ["critical", "0", "2", "0"] and tab_rv[-1].endswith("lead ruling"), tab_rv)
+ruled = dict(RV_ROW, dims=RV_ROW["dims"].replace('"phone": 7.0', '"phone": 6.5'), total="64.25")
+vis_k, tab_k = M.review_table(RV, ruled)
+check("reviews: a key set by the lead is marked ruling", "· 1 key ruled" in vis_k[1] and any(l.startswith("phone") and l.endswith("lead ruling") for l in tab_k), (vis_k, tab_k))
+check("reviews: none for a round without reviewer files", M.review_table(RV, dict(RV_ROW, round="7")) == ([], []))
+check("model names from ledger, transcripts and reviewer labels",
+      [M.model_name(x) for x in ("gpt-6-astra", "gpt-6.1-sol", "claude-opus-5-5", "opus-5.5-xhigh", "astra-high", "sol61", "opus")]
+      == ["GPT-6-Astra", "GPT-6.1-Sol", "Opus 5.5", "Opus 5.5 xhigh", "GPT-6-Astra high", "GPT-6.1-Sol", "Opus 5.5"]
+      and M.model_name("claude-fable-5-1", True) == "Claude Fable 5.1")
+WF = "id,started,ended,agent,model,effort,class,status,minutes,note,backend"
+(RV / "audits" / "workers.csv").write_text("\n".join([WF, "A1,x,y,codex,gpt-6-astra,high,data,done,60,,api", "A2,x,y,codex,gpt-6-astra,high,data,partial,30,,api",
+    "C1,x,y,codex,gpt-6.1-sol,high,data,timeout,90,a1 astra ended: timeout; a2 sol61,api", "C2,x,y,,,,data,failed,,stopped by lead",
+    "H1,x,,,,,research,running,,", "G1-opus,x,y,claude,opus,xhigh,gate,done,,", "B1,x,y,codex,gpt-6-astra,high,data,done,5,bake-off astra,subscription"]) + "\n", encoding="utf-8")
+usage_rv = {"lead": {"models": {"claude-opus-5-5": {"runs": 3}, "<synthetic>": {"runs": 1}}},
+            "Claude sub-agents": {"runs": 3, "models": {"claude-opus-5-5": {"runs": 2}, "claude-sonnet-5-5": {"runs": 1}}}}
+ml = M.models_lines(RV, {"workers": "astra", "worker_fallback": "sol61,sonnet"}, [RV_ROW], usage_rv)
+check("models: lead, workers with fallback, sub-agents, gate and confirming reviewers", ml == [
+    "Lead     Claude Opus 5.5", "Workers  5 runs · 3.0 worker-h", "  GPT-6-Astra high   2 · 1.5 h", "  GPT-6.1-Sol high   1 · 1.5 h fallback",
+    "  1 running · 1 ended, no model recorded", "Codex    API ×3 · Codex subscription ×1",
+    "Agents   Opus 5.5 ×2 · Sonnet 5.5 ×1",
+    "Gate R1  Opus 5.5 xhigh + Astra high", "Confirm  R1 Opus 5.5 · critical dismissed"], ml)
+check("models: no transcript → the requested lead", M.models_lines(RV, {}, [], None)[0].startswith("Lead     Claude Opus 5.5 (requested"))
+check("reviews and models lines fit a phone (≤48 cells)", all(M.width(l) <= 48 for l in vis_rv + tab_rv + ml[:-4] + ml[-3:]),
+      [l for l in vis_rv + tab_rv + ml if M.width(l) > 48])
+check("reviews: header columns line up with the numbers", M.width(tab_rv[1].split("used")[0]) + 4 == M.width(tab_rv[2].rsplit("  Astra", 1)[0]), tab_rv[1:3])
 (R / "game.js").write_text("x", encoding="utf-8"); git(R, "add", "game.js"); commit(R)
 (R / "game.js").write_text("changed", encoding="utf-8")
 old = __import__("time").time() - 2 * 3600
