@@ -3,5 +3,14 @@
   "slug": "marathon",
   "mode": "static",
   "access": "public",
-  "required_paths": ["/", "/zh/", "/docs/", "/zh/docs/", "/marathon-skill.zip"]
+  "required_paths": [
+    "/",
+    "/zh/",
+    "/docs/",
+    "/zh/docs/",
+    "/marathon-skill.zip",
+    "/zh/explained/",
+    "/zh/animation/",
+    "/animation-making.zip"
+  ]
 }

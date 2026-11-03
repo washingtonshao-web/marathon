@@ -1,0 +1,5 @@
+date,view,reviewer,score,max,zeros,top_fix
+2026-11-04,zh/explained desktop+iphone,gpt-6-astra high,20,22,0,plain wording and benefit-first lede
+2026-11-04,zh/animation desktop+iphone,gpt-6-astra high,18,22,0,qualify numbers and move install commands
+2026-11-04,zh/explained desktop+iphone,gpt-6-astra high round 2,21,22,0,phone length
+2026-11-04,zh/animation desktop+iphone,gpt-6-astra high round 2,23,24,0,cost wording (fixed)

@@ -65,6 +65,7 @@ Requires Python 3.10+ and Claude Code (the lead and the review gate run on Claud
 | `docs/` | The guide in English and Chinese |
 | `site/` | Source of marathon.falconshire.com (built with a design kit that is not part of this repo; the published pages are self-contained) |
 | `tools/make_zip.py` | Builds the installer zip |
+| `tools/make_animation_zip.py` | Builds `animation-making.zip` (the separate animation-making skill, served at `/zh/animation/`) from a media-pipeline checkout |
 
 Run the tests with `python skill/marathon/scripts/test_marathon.py` (and the other `test_*.py` files).
 

@@ -110,3 +110,17 @@
   .k-table.m-modes td[data-label]::before { content: attr(data-label) " · "; color: var(--k-muted); font-size: var(--k-fs-sm); }
   .k-header .k-nav a.m-guide { display: inline-flex; min-height: 44px; align-items: center; }
 }
+
+/* Doc headlines wrap only between their "|" parts; short comparison tables stay tables on phones */
+.m-nb { display: inline-block; }
+@media (max-width: 719px) {
+  .m-doc table.m-compact { display: table; width: 100%; }
+  .m-doc table.m-compact thead { display: table-header-group; }
+  .m-doc table.m-compact tbody { display: table-row-group; }
+  .m-doc table.m-compact tr { display: table-row; padding: 0; }
+  .m-doc table.m-compact th, .m-doc table.m-compact td { display: table-cell; padding: 7px 10px 7px 0; border-bottom: 1px solid var(--k-line); font-size: var(--k-fs-sm); }
+  .m-doc table.m-compact td:first-child { font-weight: 400; }
+}
+.m-doc .m-shot { margin: var(--k-sp-4) 0 var(--k-sp-5); }
+.m-doc .m-shot img { display: block; width: 100%; height: auto; border: 1px solid var(--k-line); }
+.m-doc .m-shot figcaption { margin-top: 6px; font-size: var(--k-fs-sm); color: var(--k-muted); }

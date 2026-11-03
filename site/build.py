@@ -1,4 +1,4 @@
-"""Build marathon.falconshire.com into site/out/: landing pages (EN, 中文), guides from docs/*.md, the installer zip.
+"""Build marathon.falconshire.com into site/out/: landing pages (EN, 中文), guides from docs/*.md, the installer zips (Marathon, animation-making).
 
     SITE_KIT_APPLY=<path to the design kit's apply_kit.py> python site/build.py
 """
@@ -17,17 +17,18 @@ ICON = ("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0
 
 NAV = {
     "en": [("/#how", "How it works"), ("/#results", "Results"), ("/#install", "Install"), ("/docs/", "Guide"), ("/zh/", "中文")],
-    "zh": [("/zh/#how", "怎么运作"), ("/zh/#results", "实测"), ("/zh/#install", "安装"), ("/zh/docs/", "中文文档"), ("/", "English")],
+    "zh": [("/zh/#how", "怎么运作"), ("/zh/#results", "实测"), ("/zh/#install", "安装"), ("/zh/explained/", "详解"), ("/zh/docs/", "中文文档"),
+           ("/zh/animation/", "动画制作"), ("/", "English")],
 }
 FOOT = {
-    "en": f'<a href="{GITHUB}">GitHub</a> · <a href="/docs/">Guide</a> · <a href="/zh/">中文</a> · MIT licence · Marathon works with Claude Code and the OpenAI Codex CLI; it is not made by Anthropic or OpenAI.',
-    "zh": f'<a href="{GITHUB}">GitHub</a> · <a href="/zh/docs/">中文文档</a> · <a href="/">English</a> · MIT 许可 · Marathon 适用于 Claude Code 和 OpenAI Codex CLI，并非 Anthropic 或 OpenAI 的官方产品。',
+    "en": f'<a href="{GITHUB}">GitHub</a> · <a href="/docs/">Guide</a> · <a href="/zh/">中文</a> · <a href="/zh/animation/" lang="zh-CN">动画制作</a> · MIT licence · Marathon works with Claude Code and the OpenAI Codex CLI; it is not made by Anthropic or OpenAI.',
+    "zh": f'<a href="{GITHUB}">GitHub</a> · <a href="/zh/explained/">详解</a> · <a href="/zh/docs/">中文文档</a> · <a href="/zh/animation/">动画制作</a> · <a href="/">English</a> · MIT 许可 · Marathon 适用于 Claude Code 和 OpenAI Codex CLI，并非 Anthropic 或 OpenAI 的官方产品。',
 }
 
 
 def header(lang):
     home = "/" if lang == "en" else "/zh/"
-    links = "".join(f'<a href="{h}"{" class=\"m-lang\" lang=\"zh-CN\"" if t == "中文" else (" class=\"m-lang\" lang=\"en\"" if t == "English" else (" class=\"m-guide\"" if h.endswith("docs/") else ""))}>{t}</a>' for h, t in NAV[lang])
+    links = "".join(f'<a href="{h}"{" class=\"m-lang\" lang=\"zh-CN\"" if t == "中文" else (" class=\"m-lang\" lang=\"en\"" if t == "English" else (" class=\"m-guide\"" if h.endswith(("docs/", "animation/")) else ""))}>{t}</a>' for h, t in NAV[lang])
     return (f'<header class="k-header"><div class="k-page k-header__in">'
             f'<a class="k-brand" href="{home}"><span class="k-brand__mark">M</span><span class="k-brand__name">Marathon</span></a>'
             f'<nav class="k-nav">{links}</nav></div></header>')
@@ -66,12 +67,12 @@ DOC_SHELL = """<!doctype html>
   <section class="k-hero"><div class="k-page">
     <h1>{h1}</h1>
     <p class="k-hero__lede">{lede}</p>
-    <div class="m-cta"><a class="k-btn k-btn--primary m-btn-big" href="/marathon-skill.zip" download>{dl}</a></div>
+    <div class="m-cta"><a class="k-btn k-btn--primary m-btn-big" href="{dl_href}" download>{dl}</a></div>
   </div></section>
   <div class="k-page k-with-toc">
     <nav class="k-toc">{toc}</nav>
     <div class="k-prose m-doc">{body}
-      <div class="m-final-cta"><a class="k-btn k-btn--primary m-btn-big" href="/marathon-skill.zip" download>{dl}</a></div>
+      <div class="m-final-cta"><a class="k-btn k-btn--primary m-btn-big" href="{dl_href}" download>{dl}</a></div>
     </div>
   </div>
 </main>
@@ -96,22 +97,29 @@ def label_cells(body: str) -> str:
                 part = re.sub(r"<td([^>]*)>", cell, part)
             out.append(part)
         return "".join(out)
-    return re.sub(r"<table>.*?</table>", one, body, flags=re.S)
+    def compact(m):
+        """A table whose cells after the first are all short stays a table on phones (a score or count comparison)."""
+        cells = [re.sub("<[^>]+>", "", c).strip() for row in re.findall(r"<tr>(.*?)</tr>", m.group(0), re.S)
+                 for c in re.findall(r"<td[^>]*>(.*?)</td>", row, re.S)[1:]]
+        return m.group(0).replace("<table>", '<table class="m-compact">', 1) if cells and max(map(len, cells)) <= 8 else one(m)
+    return re.sub(r"<table>.*?</table>", compact, body, flags=re.S)
 
 
-def doc_page(md_path: Path, lang: str) -> str:
+def doc_page(md_path: Path, lang: str, dl_href: str = "/marathon-skill.zip", dl: str = "", suffix: str = "Marathon") -> str:
     text = md_path.read_text(encoding="utf-8")
     first, rest = text.split("\n", 1)
-    h1 = first.lstrip("# ").strip()
+    h1_src = first.lstrip("# ").strip()  # "|" marks where the headline may wrap; the parts never split inside
+    h1 = "".join(f'<span class="m-nb">{part}</span>' for part in h1_src.split("|")) if "|" in h1_src else h1_src
+    title = h1_src.replace("|", "")
     lede_m = re.match(r"\s*(.+?)\n\n(.*)", rest, re.S)
     lede, rest = (lede_m.group(1).strip(), lede_m.group(2)) if lede_m else ("", rest)
     body = markdown.markdown(rest, extensions=["tables", "fenced_code", "toc"], extension_configs={"toc": {"toc_depth": "2", "slugify": slugify_unicode}})
     body = label_cells(body)
-    body = re.sub(r"<table>", '<div class="m-tablewrap"><table>', body).replace("</table>", "</table></div>")
+    body = re.sub(r"<table( class=\"m-compact\")?>", lambda m: f'<div class="m-tablewrap">{m.group(0)}', body).replace("</table>", "</table></div>")
     toc = "".join(f'<a href="#{i}">{re.sub("<[^>]+>", "", t)}</a>' for i, t in re.findall(r'<h2 id="([^"]+)">(.*?)</h2>', body))
     zh = lang == "zh"
-    html = DOC_SHELL.format(lang_attr="zh-CN" if zh else "en", title=f"{h1} — Marathon", desc=lede.replace('"', "'"), h1=h1, lede=lede,
-                            dl="下载一键安装包" if zh else "Download the installer", toc=toc, body=body)
+    html = DOC_SHELL.format(lang_attr="zh-CN" if zh else "en", title=f"{title} — {suffix}" if suffix else title, desc=lede.replace('"', "'"), h1=h1,
+                            lede=lede, dl=dl or ("下载一键安装包" if zh else "Download the installer"), dl_href=dl_href, toc=toc, body=body)
     css = (SITE / "src" / "site.css").read_text(encoding="utf-8")
     html = html.replace('<link rel="stylesheet" href="site.css">', f"<style>\n{css}</style>").replace("ICON", ICON)
     return html.replace("<!--HEADER-->", header(lang)).replace("<!--FOOTER-->", footer(lang))
@@ -126,10 +134,16 @@ def main():
     (OUT / "zh" / "index.html").write_text(page(SITE / "src" / "zh" / "index.html", "zh"), encoding="utf-8")
     (OUT / "docs" / "index.html").write_text(doc_page(REPO / "docs" / "guide.md", "en"), encoding="utf-8")
     (OUT / "zh" / "docs" / "index.html").write_text(doc_page(REPO / "docs" / "zh" / "guide.md", "zh"), encoding="utf-8")
-    z = REPO / "dist" / "marathon-skill.zip"
-    if not z.exists():
-        sys.exit("dist/marathon-skill.zip missing: run tools/make_zip.py first")
-    shutil.copy2(z, OUT / "marathon-skill.zip")
+    for name, dl_href, dl, suffix in (("explained", "/marathon-skill.zip", "下载 Marathon 安装包", "Marathon"),
+                                      ("animation", "/animation-making.zip", "下载动画制作安装包", "")):
+        (OUT / "zh" / name).mkdir()
+        (OUT / "zh" / name / "index.html").write_text(doc_page(REPO / "docs" / "zh" / f"{name}.md", "zh", dl_href, dl, suffix), encoding="utf-8")
+    shutil.copytree(SITE / "src" / "img", OUT / "img")
+    for zname, maker in (("marathon-skill.zip", "tools/make_zip.py"), ("animation-making.zip", "tools/make_animation_zip.py")):
+        z = REPO / "dist" / zname
+        if not z.exists():
+            sys.exit(f"dist/{zname} missing: run {maker} first")
+        shutil.copy2(z, OUT / zname)
     r = subprocess.run([sys.executable, str(KIT), str(OUT)], capture_output=True, text=True, encoding="utf-8", stdin=subprocess.DEVNULL)
     print(r.stdout.strip()[-400:], r.stderr.strip()[-400:])
     leftovers = [str(p) for p in OUT.rglob("*.html") if 'href="kit/' in p.read_text(encoding="utf-8")]
