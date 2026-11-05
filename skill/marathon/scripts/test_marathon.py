@@ -1164,7 +1164,7 @@ _big.write_text("x" * (M.LESSONS_MAX + 1), encoding="utf-8")
 check("lessons_check flags an over-cap file", M.lessons_check(_big)[0] is False and "move dated notes" in M.lessons_check(_big)[1])
 # Lead-read core stays within the agreed character budget, and required prompt scopes remain explicit.
 core = ("SKILL.md", "workers.md", "gate.md")
-base_chars = 12000  # public lead-core budget baseline
+base_chars = 15700  # public lead-core budget baseline (1.2.0 full-sentence rewrite)
 now_chars = sum(len((HERE.parent / name).read_text(encoding="utf-8")) for name in core)
 check("AB: lead-read core grows at most 1500 characters", now_chars - base_chars <= 1500, now_chars - base_chars)
 prompt = (HERE.parent / "references/gate-prompt.md").read_text(encoding="utf-8")
