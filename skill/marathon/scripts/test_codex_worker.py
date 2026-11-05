@@ -79,6 +79,11 @@ if mode == "capacity" and "resume" in args:
     print(json.dumps({"type": "turn.completed", "usage": {"input_tokens": 1000, "cached_input_tokens": 800, "output_tokens": 30}}))
     open(out, "w", encoding="utf-8").write("DONE\nresumed and finished\n")
     sys.exit(0)
+if mode == "hang-after-done":
+    print(json.dumps({"type": "thread.started", "thread_id": "thr-hang"}), flush=True)
+    print(json.dumps({"type": "turn.completed", "usage": {"input_tokens": 10, "output_tokens": 2}}), flush=True)
+    Path(out).write_text("DONE.\nall items met\n", encoding="utf-8")
+    time.sleep(90)
 if mode == "limit" or (mode == "astra-limit" and model == "gpt-6-astra") or (mode == "sol-limit" and model == "gpt-6.1-sol"):
     print(json.dumps({"type": "error", "message": "You've hit your usage limit."}))
     sys.exit(1)
@@ -135,7 +140,7 @@ CODEX_HOME.mkdir()
 (CODEX_HOME / "config.toml").write_text('[mcp_servers.Example]\ncommand="unused"\n', encoding="utf-8")
 ENV = dict(os.environ, CODEX_HOME=str(CODEX_HOME), CODEX_WORKER_EXE=str(CMD), MARATHON_CLAUDE_HOME=str(TMP / "home"), PYTHONIOENCODING="utf-8",
            MARATHON_REPOS_ROOT=str(TMP / "repos"), MARATHON_OVERVIEW_GLOBS=str(TMP / "repos" / "*"),
-           FAKE_LOG=str(TMP / "calls.jsonl"))
+           FAKE_LOG=str(TMP / "calls.jsonl"), MARATHON_NO_LOAD_GATE="1")
 ENV.pop("CLAUDE_CODE_SESSION_ID", None)
 
 
@@ -159,6 +164,8 @@ def check(name, cond, detail=""):
 P = TMP / "proj"
 run("marathon.py", "init", P, "--type", "site", "--title", "t", "--anywhere")
 run("marathon.py", "set", P, "codex_backends=subscription")
+with (P / "CHARTER.md").open("a", encoding="utf-8") as f:
+    f.write("\nBENCHMARK: none (worker harness test project)\n")  # the first build worker otherwise needs research/benchmark/
 subprocess.run(["git", "init", "-q", str(P)], check=True, capture_output=True, stdin=subprocess.DEVNULL)
 (P / ".gitignore").write_text(".tmp/\naudits/\n", encoding="utf-8")
 (P / "brief.md").write_text("Make hello.txt\n", encoding="utf-8")
@@ -293,7 +300,7 @@ review = P / "audits/round-3/astra.md"
 check("gate reviews pinned candidate in detached worktree and prints its path", Path(call["cwd"]) == SNAPSHOT
       and call["candidate"] == "pinned candidate" and str(SNAPSHOT) in out
       and "Review this folder only" in call["prompt"] and "You may run tests and checks" in call["prompt"], out)
-check("finalized gate removes snapshot and persists SHA/read-only", not SNAPSHOT.exists()
+check("finalized gate keeps snapshot for other reviewers and persists SHA/read-only", SNAPSHOT.exists()
       and f"sha={SHA}" in row("gate")["note"] and "ro=1" in row("gate")["note"])
 check("gate prints paths/status only, never the full review", len(out.splitlines()) == 2 and "Complete evidence" not in out, out)
 check("--out copies complete gate review", review.exists() and same_review(review, reports / "gate.a1.md")
@@ -309,8 +316,8 @@ check("failed gate steer preserves output and read-only class", review.read_byte
 run("codex_worker.py", "steer", P, "--id", "gate", "complete review", "--out", "audits/round-4/astra.md", mode="gate")
 check("gate steer copies full review to --out", same_review(P / "audits/round-4/astra.md", reports / "gate.a3.md"))
 check("gate output carries the REVIEWER label of the model that ran", "REVIEWER: astra-high" in (P / "audits/round-4/astra.md").read_text(encoding="utf-8"))
-check("gate steer recreates the same pinned snapshot", calls()[-1]["candidate"] == "pinned candidate"
-      and Path(calls()[-1]["cwd"]) == SNAPSHOT and not SNAPSHOT.exists())
+check("gate steer reuses the same pinned snapshot", calls()[-1]["candidate"] == "pinned candidate"
+      and Path(calls()[-1]["cwd"]) == SNAPSHOT and SNAPSHOT.exists())
 out = worker("readonly", "--class", "research", "--read-only", "--out", "audits/research.md", mode="gate")
 call = calls()[-1]
 check("read-only non-gate returns full report for parent delivery", 'sandbox_mode="read-only"' in call["args"]
@@ -341,7 +348,7 @@ for wid, setting, model, expected in (
     models = [c["args"][c["args"].index("-m") + 1] for c in calls()[before:]]
     check(f"{wid}: only authorized forward Codex models, exhausted status failed", models == expected
           and "ASTRA UNAVAILABLE:" in out and "Normal round: score with --astra-pending; final gate: two configured Claude reviewers (Opus, or Sonnet under sonnet+astra) with --missing-reason." in out
-          and "FALLBACK sonnet" not in out and row(wid)["status"] == "failed" and row(wid)["ended"] and not SNAPSHOT.exists(), out)
+          and "FALLBACK sonnet" not in out and row(wid)["status"] == "failed" and row(wid)["ended"], out)
 run("marathon.py", "set", P, "worker_fallback=sol61,sonnet")
 for flags, message in (([], "--class"), (["--class", "gate"], "--sha is required"),
                        (["--class", "gate", "--sha", "not-a-commit"], "rev-parse")):
@@ -370,7 +377,7 @@ out = worker("explicit-luna", "--model", "luna", mode="limit")
 check("model absent from chain keeps only Claude fallbacks", "FALLBACK sonnet" in out and len(calls()) == before + 1, out)
 out = worker("missing-exe", env={"CODEX_WORKER_EXE": str(TMP / "nonexistent.exe")})
 check("launch failure finalizes ledger with attempt ends", row("missing-exe")["status"] == "fallback" and row("missing-exe")["ended"]
-      and "a1 astra ended" in row("missing-exe")["note"] and "FileNotFoundError" in row("missing-exe")["note"], out)
+      and "a1 astra ended" in row("missing-exe")["note"] and "FileNotFoundError" in row("missing-exe")["note"] and "nonexistent.exe" in row("missing-exe")["note"], out)
 
 out = run("codex_worker.py", "steer", P, "--id", "timeout-tools", "continue work", "--minutes", "0.1", mode="timeout-tools")
 check("timeout during steer finalizes without fallback", "timeout-tools TIMEOUT" in out and row("timeout-tools")["status"] == "timeout"
@@ -455,7 +462,7 @@ run("codex_worker.py", "steer", P, "--id", "scratch-keep", "finish")
 check("steer cleans scratch by default", not scratch.exists() and row("scratch-keep")["status"] == "done")
 scratch = P / ".tmp/scratch-gate"
 worker("scratch-gate", "--class", "gate", env={"FAKE_SCRATCH": str(scratch)})
-check("gate skips worker scratch cleanup and retains snapshot lifecycle", scratch.exists() and not SNAPSHOT.exists())
+check("gate skips worker scratch cleanup", scratch.exists())
 check("worker footer delegates cleanup to harness", all("do not delete it yourself" in c["prompt"]
       and "Do not report cleanup as unfinished work" in c["prompt"] for c in calls() if ".full.md" in c["prompt"]))
 check("gate and read-only footers do not authorize worker scratch writes", all("Keep scratch files under" not in c["prompt"]
@@ -553,15 +560,44 @@ check("infra exception preserves scratch and finalizes ledger", scratch.exists()
       and row("scratch-exception")["status"] == "failed" and row("scratch-exception")["ended"])
 cw.m.upsert_worker(P, "opus-running", {"class": "gate", "status": "running", "note": f"sha={SHA}"})
 out = worker("shared-gate", "--class", "gate")
-check("other running gate on same SHA keeps shared snapshot", SNAPSHOT.exists()
+check("gate exit keeps the shared snapshot", SNAPSHOT.exists()
       and row("shared-gate")["status"] == "done", out)
 (SNAPSHOT / ".scratch" / "kept.txt").write_text("reused", encoding="utf-8")
 worker("shared-gate-2", "--class", "gate")
 check("same SHA snapshot is reused", (SNAPSHOT / ".scratch" / "kept.txt").read_text(encoding="utf-8") == "reused")
+def next_sha():
+    subprocess.run(["git", "-C", str(P), "-c", "user.name=Test", "-c", "user.email=test\x40example.invalid", "-c", "core.hooksPath=" + str(TMP / "no-hooks"),
+                    "commit", "-qm", "next", "--allow-empty"], check=True, capture_output=True, stdin=subprocess.DEVNULL)
+    sha = subprocess.check_output(["git", "-C", str(P), "rev-parse", "HEAD"], text=True, stdin=subprocess.DEVNULL, encoding="utf-8").strip()
+    return sha, P / ".tmp/gate" / sha[:7]
+
+
+target, link, foreign = TMP / "link-target", SNAPSHOT / "linked", P / ".tmp/gate/notes"
+target.mkdir()
+(target / "keep.txt").write_text("keep", encoding="utf-8")
+foreign.mkdir()
+if os.name == "nt":
+    subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)], check=True, capture_output=True, stdin=subprocess.DEVNULL)
+else:
+    link.symlink_to(target, target_is_directory=True)
+sha2, snap2 = next_sha()
+worker("next-round", "--class", "gate", "--sha", sha2)
+check("new round keeps a snapshot whose reviewer is still running", SNAPSHOT.exists() and snap2.exists())
 cw.m.upsert_worker(P, "opus-running", {"status": "done"})
-cw.m.upsert_worker(P, "other-sha", {"class": "gate", "status": "running", "note": "sha=" + "f" * 40})
-worker("last-gate", "--class", "gate")
-check("last gate removes snapshot despite another SHA running", not SNAPSHOT.exists())
+sha3, snap3 = next_sha()
+worker("later-round", "--class", "gate", "--sha", sha3)
+check("new round clears finished snapshots, never link targets or foreign folders", not SNAPSHOT.exists() and not snap2.exists()
+      and (target / "keep.txt").exists() and foreign.exists() and snap3.exists())
+(snap3 / ".git").unlink()
+out = worker("half-removed", "--class", "gate", "--sha", sha3)
+check("half-removed snapshot is rebuilt", (snap3 / ".git").is_file() and row("half-removed")["status"] == "done", out)
+(snap3 / ".git").unlink()
+cw.m.upsert_worker(P, "half-reader", {"class": "gate", "status": "running", "note": f"sha={sha3}"})
+out = worker("half-in-use", "--class", "gate", "--sha", sha3)
+check("half-removed snapshot another reviewer uses is left alone", (snap3 / "candidate.txt").exists() and row("half-in-use")["status"] == "failed"
+      and "does not match" in out, out)
+cw.m.upsert_worker(P, "half-reader", {"status": "done"})
+cw.m.upsert_worker(P, "opus-running", {"status": "done"})
 cw.m.upsert_worker(P, "other-sha", {"status": "done"})
 gate_args = SimpleNamespace(dir=str(P), id="gate-exception", brief=str(P / "brief.md"), model="astra", cls="gate",
                             sha=SHA, read_only=False, out=None, minutes=1, image=None)
@@ -570,8 +606,7 @@ with patch.object(cw, "attempt", side_effect=RuntimeError("unexpected failure"))
         cw.cmd_run(gate_args)
     except RuntimeError:
         pass
-check("gate exception finalizes ledger and removes snapshot", row("gate-exception")["status"] == "failed"
-      and row("gate-exception")["ended"] and not SNAPSHOT.exists())
+check("gate exception finalizes ledger", row("gate-exception")["status"] == "failed" and row("gate-exception")["ended"])
 with patch.object(cw, "snapshot", side_effect=OSError("worktree unavailable")):
     try:
         cw.cmd_run(gate_args)
@@ -582,6 +617,27 @@ check("all worker footers forbid independent review", all("Do not start an indep
 with patch.dict(os.environ, {"CODEX_WORKER_EXE": ""}), patch.object(cw.Path, "glob", return_value=[]), \
         patch.object(cw.shutil, "which", return_value="codex.cmd"):
     check("Codex discovery supports PATH npm shim", cw.codex_exe() == "codex.cmd")
+newer, older = TMP / "codex-newer.exe", TMP / "codex-older.exe"
+newer.touch(); older.touch(); os.utime(older, (1, 1))
+with patch.dict(os.environ, {"CODEX_WORKER_EXE": ""}), patch.object(cw.Path, "glob", return_value=[newer, older]):
+    with patch.object(cw, "codex_version", side_effect=lambda x: (0, 166, 0) if x == older else (0, 163, 0)):
+        check("higher Codex version beats a newer timestamp", cw.codex_exe() == str(older))
+    with patch.object(cw, "codex_version", return_value=()):
+        check("unreadable Codex versions fall back to the newest build", cw.codex_exe() == str(newer))
+with patch.object(cw.subprocess, "run", return_value=Mock(stdout="codex-cli 0.166.0-alpha.5.1\n")):
+    check("Codex version parses prereleases", cw.codex_version(newer) == (0, 166, 0))
+with patch.object(cw.subprocess, "run", side_effect=OSError("broken")):
+    check("broken Codex build has no version", cw.codex_version(newer) == ())
+word = TMP / "word.md"
+for text, want in (("DONE", "done"), ("DONE.\nx", "done"), ("**DONE.** x", "done"), ("DONE, x", "done"), ("DONE - x", "done"), ("DONE\u2014x", "done"),
+                   ("DONE\u3002x", "done"), ("`FAILED`", "failed"), ("# PARTIAL.", "partial"), ("Done: x", "done"), ("", ""), ("Status: DONE", ""),
+                   ("DONEX", ""), ("Partially done", ""), ("Review finished", "")):
+    word.write_text(text, encoding="utf-8")
+    check(f"status word of {text!r}", cw.status_word(word) == want, cw.status_word(word))
+out = worker("hang-after-done", mode="hang-after-done", env={"CODEX_WORKER_EXIT_GRACE": "0.5"})
+check("completed turn with a summary is delivered although Codex never exits", row("hang-after-done")["status"] == "done"
+      and float(row("hang-after-done")["minutes"]) < 1 and (reports / "hang-after-done.md").exists()
+      and "did not exit" in row("hang-after-done")["note"], out)
 proc = Mock(pid=12345, returncode=None)
 proc.stdin.write.side_effect = BrokenPipeError("fake stdin closed")
 proc.wait.return_value = 1
@@ -655,7 +711,7 @@ for direct in (False, True):
     errors = []
     args = SimpleNamespace(dir=str(P), id=wid, brief=str(P / "brief.md"), model="astra", cls="build",
                            read_only=False, out=None, minutes=1, image=None)
-    def held_runner(cmd, rd, prompt, events, err, minutes, env=None):
+    def held_runner(cmd, rd, prompt, events, err, minutes, env=None, summary=None):
         Path(cmd[cmd.index("-o") + 1]).write_text("DONE\nfinished", encoding="utf-8")
         events.write_text(json.dumps({"type": "thread.started", "thread_id": "test-thread"}) + "\n", encoding="utf-8")
         err.write_text("", encoding="utf-8")

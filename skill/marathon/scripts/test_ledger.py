@@ -551,7 +551,7 @@ print('production checks passed')
             self.assertNotIn('250k', out)
             self.assertNotIn('80k', out)
             if profile != 'classic':
-                self.assertIn('first quiet point past 150k', out)
+                self.assertIn('first quiet point past 300k', out)
             if profile == 'codex-lead':
                 self.assertIn('Codex checkpoint: handoff --save-only', out)
             self.assertIn('lead requested', self.cli('config', self.project, '--short'))
@@ -583,6 +583,7 @@ from contextlib import redirect_stdout
 from types import SimpleNamespace
 from unittest.mock import patch
 d = Path({str(self.project)!r})
+m.IDLE_MIN = 10 ** 6  # this test covers status transitions with a mocked clock, not the idle rule of the budget clock
 initial = (d / 'STATE.md').read_bytes()
 reg = m.reg_path()
 settings = m.HOME / 'settings.json'
@@ -624,6 +625,7 @@ import datetime as dt, io
 from contextlib import redirect_stdout
 from unittest.mock import patch
 d = Path({str(self.project)!r})
+m.IDLE_MIN = 10 ** 6  # this test covers status transitions with a mocked clock, not the idle rule of the budget clock
 initial = (d / 'STATE.md').read_bytes()
 def invoke(argv):
     out = io.StringIO()

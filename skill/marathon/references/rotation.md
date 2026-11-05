@@ -1,6 +1,6 @@
 # Quiet-point rotation
 
-rotate_at is context tokens in thousands (thin default 150; 0/hands-on disables). Use get_usage if available; otherwise the runtime meter or a conservative estimate in STATE.md. Trigger after an integrated wave/scored gate, with no live workers.
+rotate_at is context tokens in thousands (thin default 300, and the old default 150 counts as 300; 0/hands-on disables). The Stop hook reads the latest context size from the session transcript and reminds the lead, at most three times per project, once it passes the threshold with no worker running. Trigger after an integrated wave/scored gate, with no live workers.
 
 Claude:
 1. Update STATE/ledger; `marathon.py handoff <dir> --why "context threshold"` (optional --note). Never --force past live workers. The resume prompt is saved in STATE.md, Handoff.

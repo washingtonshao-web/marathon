@@ -15,7 +15,7 @@ Use design's current screenshot/visual-review workflow. Record measured metrics 
 ## Delivery
 
 Give status first, then live link, scores, ledger checklist, compromises, human-only checks, cost and anything still worth fixing. Include:
-1. Verified link and deployed commit/release ID.
+1. Verified link as a labelled markdown link (`[站点名](https://…/)`; never Chinese text or full-width punctuation straight after a bare URL), and the deployed commit/release ID in a separate sentence.
 2. Summary in the site or SUMMARY.md: result, scores, gaps, compromises.
 3. Continuation files: CHARTER, STATE, DECISIONS history when present, PROMPTS and README with build/test/publish steps.
 4. Source repo and pushed commit hash.

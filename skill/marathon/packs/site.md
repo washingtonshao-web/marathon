@@ -31,8 +31,9 @@ Plain or white basemaps were rejected every time. Start from a proven basemap (e
 ## Hard checks
 - Design `shoot.py` (desktop + iPhone, fonts, overflow, contrast) and the click test.
 - Link checker.
+- Design `scripts/ai_tells.py` on the built pages (writing.md caps).
 - Data validators: counts, fields, placeholders, duplicates, licences present.
 - Payload size and timing on the live URL.
 
 ## Human-only checklist
-Is the first screen interesting? Does search find what a friend would type? Are the photos right for the items? Does it load fast on the user's phone over mobile data?
+Your score (0–100) and three reasons on the preview (`USER_SCORE` in CHARTER). Is the first screen interesting? Does search find what a friend would type? Are the photos right for the items? Does it load fast on the user's phone over mobile data?

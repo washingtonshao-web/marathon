@@ -65,7 +65,7 @@ Next     inventory walk · UI audit</pre>
           <text x="590" y="228" class="m-flow__note">没达标时，lead 按评审指出的最大短板安排下一波</text>
         </svg>
         <ol class="m-flow-list"><li><b>1 开工</b><span>最多 5 个问题，默认值已选好；定下目标</span></li><li><b>2 派活</b><span>几行任务说明，交给并行的 Codex 或 Claude worker</span></li><li><b>3 汇报</b><span>每个 worker 交回一段简短总结（≤300 个英文单词）</span></li><li><b>4 闸门</b><span>Opus 和 Astra 给同一个冻结版本打分</span></li><li><b>5 修改或交付</b><span>没达标：按最大短板安排下一波；达标：提交、上线</span></li></ol>
-        <figcaption>lead 只做决定。上下文超过 150k token 时，它通过 STATE.md 交给新的 lead 接班，所以一个项目可以连续跑好几天。</figcaption>
+        <figcaption>lead 只做决定。上下文超过 300k token 时，它通过 STATE.md 交给新的 lead 接班，所以一个项目可以连续跑好几天。</figcaption>
       </figure>
     </section>
 
@@ -73,7 +73,7 @@ Next     inventory walk · UI audit</pre>
       <div class="k-section__head"><h2>它能替你做什么</h2></div>
       <div class="m-features">
         <div class="m-feat"><h3>只问一次，然后开干</h3><p>开工时最多 5 个问题，默认值已经选好，点一次确认就行；你不在时，10 分钟后按默认开跑。</p></div>
-        <div class="m-feat"><h3>目标可以检验</h3><p>开工前就写下对标对象、数字目标和及格线，“做完了”是一个分数，而不是一种感觉。</p></div>
+        <div class="m-feat"><h3>做完 = 你愿意直接用</h3><p>开工前写下对标对象、数字目标和及格线，但分数只是最低要求：两位评审都没有严重问题、都说会直接拿去用，才算做完。</p></div>
         <div class="m-feat"><h3>并行的 worker</h3><p>同时派多个 worker（默认的 balanced 模式最多 4 个）写代码、做研究、跑测试、改页面。每个只交回一段简短总结，完整报告存成文件。</p></div>
         <div class="m-feat"><h3>双模型评审闸门</h3><p>Claude Opus 和 GPT-6-Astra 独立给同一个冻结版本打分；分歧大时按证据裁决，而不是取平均。</p></div>
         <div class="m-feat"><h3>不用说“继续”</h3><p>停止 hook 让它一直跑下去，直到满足停止条件：达标、连续三轮没有实质进步、预算用完，或者只有你能处理的事。</p></div>

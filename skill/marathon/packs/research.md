@@ -7,8 +7,10 @@ Craft:
 
 ## What the user keeps asking for
 - **Numbers and a decision.** Estimate when data is thin (and label it). Give probabilities, scores, ranges and a recommendation. A method without a result is not an answer.
+- **A recommendation in every section.** End each section with what you recommend, why, and what would change your mind. A list of evidence without your own judgment is not an answer: the reviewers count it as a major problem. State a caveat once, where it first matters; do not hedge every line or pile up disclaimers.
 - **Literature before your own work.** Read what the field does before modelling, simulating or downloading. Use industry-standard terms and never invent labels (no "T0", "PMRD" or "no-op" unless the field uses them). A glossary defines every term a colleague might not know.
 - **Answer the question asked.** Every research question in the authorized brief is a Q-n row in CHARTER; answers start directly. Ordinary follow-up questions remain chat-only under followups.md. The gate checks every Q-n.
+- **Talk or report: ask.** "分享给同事" can mean either; CHARTER `Format:` records which. When the user will present it, build a spoken flow (headline and plenary studies first, a primer for unfamiliar technology, what it means for us, what to watch) in the user's "we" voice, not a consulting report. CHARTER `Format:` decides; words follow design `writing.md` (one as-of date per page, sources in drawers or the method page).
 - **Colleague-readable.** Conclusions first; method, assumptions and references at the end. When the reader must act, give an SOP: steps, inputs and decision thresholds.
 - **Own your view.** Disagree with the user when the evidence says so, with the numbers. Don't flip-flop to agree.
 
@@ -26,6 +28,7 @@ The user's own parameters (purity, enrichment, input mass, depth, prices) go int
 - Every headline number has ≥2 independent sources, or is marked as an estimate with its derivation.
 - Regulatory status, approvals, prices and company facts are checked fresh, because they change.
 - The gate samples 10 claims against their sources.
+- Design `scripts/ai_tells.py` runs on the built pages before each gate (writing.md caps).
 
 ## Independence
 When the user runs the same brief with another model or session, don't read its output unless asked. When asked to compare, tabulate where and why the results differ.
@@ -39,4 +42,4 @@ When the user runs the same brief with another model or session, don't read its 
 - With code: the measured performance on the held-out truth set.
 
 ## Human-only checklist
-Would a colleague in the field accept the terms and numbers? Do the recommendations fit the company's real constraints, which the user knows?
+Would you present this to your colleagues tomorrow? Your score (0–100) and three reasons become `USER_SCORE` in CHARTER. Would a colleague in the field accept the terms and numbers? Do the recommendations fit the company's real constraints, which the user knows?

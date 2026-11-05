@@ -2,6 +2,8 @@
 
 Use `python <installed-skill>/scripts/marathon.py -h` and subcommand -h; never live launches for syntax checks.
 
+One-line question: `ask <dir> "question" --options "A|B" --default A` (the default is an option's text or its letter). Wait for workers: `wait <dir> --for W1,W2 --max 120` (background; reports final states, empty reports and workers still running at the deadline).
+
 status is compact; --full expands, --report includes archived history. Directory-free status lists projects (--days/--json/--sessions/--widget/--markdown). usage defaults to totals; --full/--by-role expand. Worker list: `marathon.py worker list <dir>` or `worker <dir>` without ID. log keeps stdin -, --lead, --at.
 
 ## Compatibility aliases (listed once)
@@ -23,4 +25,4 @@ Aliases preserve flags/side effects. Score compatibility spellings: --astra-pend
 
 Run each scripts/test_*.py and tools/test_package.py. Fake network/models; isolate MARATHON_CLAUDE_HOME, MARATHON_REPOS_ROOT and MARATHON_OVERVIEW_GLOBS in your project. Use your own sync workflow.
 
-Python text-mode characters: SKILL + workers + gate + intake + references/{commands,profiles,adjudication,rotation,codex-workers}.md + chosen mode card ≤25,000 (Claude lead); add references/codex.md ≤29,000 (Codex lead). Count either card; do not relocate required reading. lessons.md ≤3,000; archive not read by default.
+Python text-mode characters: SKILL + workers + gate + intake + references/{commands,profiles,adjudication,rotation,codex-workers}.md + chosen mode card ≤32,000 (Claude lead); add references/codex.md ≤36,000 (Codex lead). Count either card; do not relocate required reading. lessons.md ≤3,000; archive not read by default.

@@ -17,6 +17,7 @@ worker_fallback: astra,sonnet
 lead_sessions: 
 rotations: 0
 ask_wait: 10
+auto_resume: on
 asking:
 waiting_on: 
 waiting_since: 

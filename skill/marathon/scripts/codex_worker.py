@@ -176,6 +176,14 @@ def output_path(d: Path, value: str | None) -> Path | None:
     return target
 
 
+def codex_version(exe: Path) -> tuple[int, ...]:
+    try:
+        out = subprocess.run([str(exe), "--version"], capture_output=True, text=True, timeout=10, encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL).stdout
+    except (OSError, subprocess.SubprocessError):
+        return ()
+    return tuple(int(n) for n in re.findall(r"\d+", out)[:3])
+
+
 def codex_exe() -> str:
     if os.environ.get("CODEX_WORKER_EXE"):   # tests
         return os.environ["CODEX_WORKER_EXE"]
@@ -184,8 +192,9 @@ def codex_exe() -> str:
         exes = list(Path(os.environ.get("LOCALAPPDATA", "")).glob("OpenAI/Codex/bin/*/codex.exe"))
     elif sys.platform == "darwin":
         exes = [p for root in (Path("/Applications/Codex.app/Contents/Resources"), Path.home() / "Applications/Codex.app/Contents/Resources") for p in root.glob("**/codex") if p.is_file() and os.access(p, os.X_OK)]
-    exes.sort(key=lambda p: p.stat().st_mtime)
-    return str(exes[-1]) if exes else shutil.which("codex") or "codex"
+    if len(exes) > 1:   # an update can leave an older, incomplete build with a newer timestamp
+        return str(max(exes, key=lambda x: (codex_version(x), x.stat().st_mtime)))
+    return str(exes[0]) if exes else shutil.which("codex") or "codex"
 
 
 def real_path(p: Path) -> Path:
@@ -284,9 +293,9 @@ def kill_tree(p, err=None) -> None:
         p.wait()
 
 
-def run_codex(cmd: list[str], cwd: Path, prompt: str, events: Path, err: Path, minutes: float, env: dict | None = None) -> tuple[int | None, float]:
+def run_codex(cmd: list[str], cwd: Path, prompt: str, events: Path, err: Path, minutes: float, env: dict | None = None, summary: Path | None = None) -> tuple[int | None, float]:
     t0 = time.monotonic()
-    p, writer, code, errors = None, None, -1, []
+    p, writer, code, errors, exit_by = None, None, -1, [], None
     with events.open("w", encoding="utf-8") as fo, err.open("w", encoding="utf-8") as fe:
         try:
             p = subprocess.Popen(cmd, cwd=str(cwd), stdin=subprocess.PIPE, stdout=fo, stderr=fe, text=True,
@@ -312,7 +321,15 @@ def run_codex(cmd: list[str], cwd: Path, prompt: str, events: Path, err: Path, m
                     code = p.wait(timeout=min(0.2, remaining))
                     break
                 except subprocess.TimeoutExpired:
-                    continue
+                    pass
+                # Codex can stay alive after its final turn, waiting on commands the model left running.
+                if not exit_by and summary and summary.stat().st_size and parse_events(events)["completed"]:
+                    exit_by = time.monotonic() + float(os.environ.get("CODEX_WORKER_EXIT_GRACE", "60"))
+                if exit_by and time.monotonic() >= exit_by:
+                    fe.write("Codex did not exit after its completed turn; stopped it\n")
+                    kill_tree(p, fe)
+                    code = 0
+                    break
             writer.join(timeout=max(0, deadline - time.monotonic()))
             if writer.is_alive():
                 raise subprocess.TimeoutExpired(cmd, minutes * 60)
@@ -323,7 +340,7 @@ def run_codex(cmd: list[str], cwd: Path, prompt: str, events: Path, err: Path, m
             fe.write("attempt timed out\n")
         except OSError as e:   # includes BrokenPipeError while sending the prompt
             code = -1
-            fe.write(f"{type(e).__name__}: {e}\n")
+            fe.write(f"{type(e).__name__}: {e} ({cmd[0]})\n")
         finally:
             if p is not None:
                 if code in (None, -1) or p.poll() is None:
@@ -396,11 +413,28 @@ def git(d: Path, *args: str) -> str:
     return subprocess.run(["git", *args], cwd=d, check=True, capture_output=True, text=True, timeout=60, encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL).stdout.strip()
 
 
+def remove_snapshot(d: Path, rd: Path) -> None:
+    """Best effort: whatever is locked stays for the next gate to retry."""
+    try:
+        git(d, "worktree", "remove", "--force", str(rd))
+    except (OSError, subprocess.SubprocessError):
+        pass
+    shutil.rmtree(rd, ignore_errors=True)   # half-removed folders; junctions are unlinked, not followed
+
+
 def snapshot(d: Path, sha: str) -> Path:
     rd = real_path(d / ".tmp" / "gate" / sha[:7])
+    running = [s[4:] for r in read_workers(d) if r.get("class") == "gate" and r.get("status") == "running"
+               for s in r.get("note", "").split("; ") if s.startswith("sha=")]
+    # Reviewers may outlive Astra, so snapshots go only when the next round starts. A half-removed rd stays if another row uses it.
+    if not (rd / ".git").is_file() and rd.parent.is_dir():
+        for old in rd.parent.iterdir():
+            if old.is_dir() and re.fullmatch(r"[0-9a-f]{7}", old.name) and (
+                    old.name not in {s[:7] for s in running} or old.name == rd.name and running.count(sha) < 2):
+                remove_snapshot(d, old)
     if not rd.exists():
         rd.parent.mkdir(parents=True, exist_ok=True)
-        git(d, "worktree", "add", "--detach", str(rd), sha)
+        git(d, "worktree", "add", "--force", "--detach", str(rd), sha)
     if not (rd / ".git").is_file() or git(rd, "rev-parse", "HEAD") != sha:
         raise SystemExit(f"gate snapshot does not match {sha}: {rd}")
     (rd / ".scratch").mkdir(exist_ok=True)
@@ -411,19 +445,14 @@ def finalize(d: Path, a, status: str) -> None:
     if status in ("done", "failed") and getattr(a, "cleanup_terminal", False):
         clean_worker(d, a.id, a)
     m.upsert_worker(d, a.id, {"status": status, "ended": time.strftime("%Y-%m-%dT%H:%M")})
-    if a.cls == "gate" and a.sha and not any(r.get("class") == "gate" and r.get("status") == "running"
-            and f"sha={a.sha}" in r.get("note", "").split("; ") for r in read_workers(d)):
-        rd = real_path(d / ".tmp" / "gate" / a.sha[:7])
-        if (rd / ".git").is_file() and git(rd, "rev-parse", "HEAD") == a.sha:
-            git(d, "worktree", "remove", "--force", str(rd))
 
 
 def status_word(summary: Path) -> str:
     try:
-        first = summary.read_text(encoding="utf-8", errors="replace").strip().split(None, 1)[0].strip("*:#").upper()
-    except (OSError, IndexError):
+        mm = re.match(r"[\s*#_`>]*(DONE|PARTIAL|FAILED)\b", summary.read_text(encoding="utf-8", errors="replace"), re.I)
+    except OSError:
         return ""
-    return first.lower() if first in ("DONE", "PARTIAL", "FAILED") else ""
+    return mm.group(1).lower() if mm else ""
 
 
 def disabled_mcp_servers() -> list[str]:
@@ -485,7 +514,7 @@ def _attempt(d: Path, rd: Path, wid: str, name: str, prompt: str, a, resume_thre
         code, minutes = -1, 0
         err.write_text(f"{backend}: key missing", encoding="utf-8")
     else:
-        code, minutes = run_codex(cmd, rd, prompt, events, err, a.minutes, env=child_env)
+        code, minutes = run_codex(cmd, rd, prompt, events, err, a.minutes, env=child_env, summary=summary)
     if key:
         for path in (summary, events, err):
             if path.exists():
@@ -567,9 +596,36 @@ def record(d: Path, wid: str, a, r: dict, add: bool = False) -> None:
     m.upsert_worker(d, wid, fields)
 
 
+def wait_for_room(wid: str, limit_min: float = 10) -> None:
+    """A new worker waits while this PC is over gpu.md's CPU or RAM limits; nothing running is stopped. After limit_min it
+    starts anyway and says so. MARATHON_NO_LOAD_GATE=1 skips the wait (tests, or the user's explicit go-ahead)."""
+    if os.environ.get("MARATHON_NO_LOAD_GATE") == "1":
+        return
+    try:
+        import gpu  # noqa: E402  (same folder)
+    except Exception:
+        return
+    t0, said = time.time(), False
+    while True:
+        try:
+            ok, why, _ = gpu.check("cpu")
+        except Exception:
+            return
+        if ok:
+            return
+        if time.time() - t0 >= limit_min * 60:
+            print(f"{wid} starting after {limit_min:g} min over the load limits ({why})", flush=True)
+            return
+        if not said:
+            print(f"{wid} WAIT: this PC is over the load limits ({why}); the worker starts when it drops (gpu.md)", flush=True)
+            said = True
+        time.sleep(15)
+
+
 @worker_command
 def cmd_run(a) -> None:
     d = Path(a.dir).resolve()
+    wait_for_room(a.id)
     fm, _ = m.read_state(d)
     chain = m.chain_from(fm, a.model or ("astra" if a.cls == "gate" else None))
     if a.cls == "gate":
@@ -583,6 +639,8 @@ def cmd_run(a) -> None:
     m.upsert_worker(d, a.id, {"started": time.strftime("%Y-%m-%dT%H:%M"), "ended": "", "class": a.cls, "status": "running",
                             "note": f"ro={int(a.read_only)}" + (f"; sha={a.sha}" if a.sha else "")})
     tried, status = [], "failed"
+    alive = threading.Event()
+    threading.Thread(target=lambda: [m.touch_activity(d) for _ in iter(lambda: alive.wait(60), True)], daemon=True).start()
     try:
         rd = snapshot(d, a.sha) if a.cls == "gate" else real_path(d)
         if a.cls == "gate":
@@ -636,6 +694,7 @@ def cmd_run(a) -> None:
         print(f"ASTRA UNAVAILABLE: {reason}. Normal round: score with --astra-pending; final gate: two configured Claude reviewers (Opus, or Sonnet under sonnet+astra) with --missing-reason."
               if a.cls == "gate" else f"{a.id} FAILED: every model in the chain failed: {reason}")
     finally:
+        alive.set()  # a running worker marks the project active every minute (marathon.py budget clock)
         finalize(d, a, status)
 
 

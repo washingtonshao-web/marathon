@@ -65,7 +65,7 @@ Next     inventory walk · UI audit</pre>
           <text x="590" y="228" class="m-flow__note">not there yet: the lead plans the next wave from the reviewers' biggest gaps</text>
         </svg>
         <ol class="m-flow-list"><li><b>1 Kickoff</b><span>At most five questions, defaults preselected; targets set</span></li><li><b>2 Dispatch</b><span>Short briefs to parallel Codex or Claude workers</span></li><li><b>3 Report</b><span>Each worker files a summary of 300 words or less</span></li><li><b>4 Gate</b><span>Opus and Astra score the same frozen commit</span></li><li><b>5 Fix or ship</b><span>Below target: plan the next wave from the biggest gaps. Passed: commit and deploy</span></li></ol>
-        <figcaption>The lead only decides. When its context passes 150k tokens it hands over to a fresh lead through STATE.md, so a run can last days.</figcaption>
+        <figcaption>The lead only decides. When its context passes 300k tokens it hands over to a fresh lead through STATE.md, so a run can last days.</figcaption>
       </figure>
     </section>
 
@@ -73,7 +73,7 @@ Next     inventory walk · UI audit</pre>
       <div class="k-section__head"><h2>What it does for you</h2></div>
       <div class="m-features">
         <div class="m-feat"><h3>Asks once, then works</h3><p>At most five questions at kickoff, each with a default already selected. Answer with one click, or walk away: after 10 minutes it starts on the defaults.</p></div>
-        <div class="m-feat"><h3>Targets you can check</h3><p>The charter fixes a benchmark, numeric targets and a pass mark before work starts, so “done” means a score, not a feeling.</p></div>
+        <div class="m-feat"><h3>Done means you would use it</h3><p>The charter fixes a benchmark, numeric targets and a pass mark, but the score is only the floor: done means neither reviewer lists a serious problem and both would use the result as is.</p></div>
         <div class="m-feat"><h3>Parallel workers</h3><p>Several bounded workers at a time (four in the default balanced mode) write code, research, run tests or polish pages. Each returns a short summary; full reports go to files.</p></div>
         <div class="m-feat"><h3>Two-model review gate</h3><p>Claude Opus and GPT-6-Astra grade the same frozen commit independently. Big disagreements are ruled on with evidence, not averaged away.</p></div>
         <div class="m-feat"><h3>Never needs “continue”</h3><p>A stop hook keeps the run going until a stop rule holds: target met, three rounds without real gains, budget used, or something only you can do.</p></div>

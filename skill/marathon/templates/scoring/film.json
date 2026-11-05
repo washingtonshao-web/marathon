@@ -1,0 +1,87 @@
+{
+ "format": "film",
+ "pass_total": 85,
+ "keys": [
+  {
+   "id": "share_ready",
+   "label": "愿意拿给同事看",
+   "full_marks": "评审看完：用户会不会直接发给同事看",
+   "weight": 25,
+   "floor_pct": 80
+  },
+  {
+   "id": "visuals",
+   "label": "画面",
+   "full_marks": "风格统一、清楚，字幕手机上看得清",
+   "weight": 20,
+   "floor_pct": 80
+  },
+  {
+   "id": "accuracy",
+   "label": "准确",
+   "full_marks": "画面和旁白里的事实与来源一致",
+   "weight": 10,
+   "floor_pct": 80
+  },
+  {
+   "id": "story",
+   "label": "故事",
+   "full_marks": "开头点题，一条主线，结尾落到“所以呢”",
+   "weight": 20,
+   "floor_pct": 80
+  },
+  {
+   "id": "voice",
+   "label": "旁白与配音",
+   "full_marks": "为耳朵写的短句；配音由执行者试样本后选定，听起来自然",
+   "weight": 15,
+   "floor_pct": 80
+  },
+  {
+   "id": "pacing",
+   "label": "节奏",
+   "full_marks": "每分钟不超过 3 个数字，不念列表",
+   "weight": 10,
+   "floor_pct": 70
+  }
+ ],
+ "caps": [
+  {
+   "id": "judgment",
+   "text": "判断格式本身",
+   "note": "概率表、到期日、复核日、“倾向发生 / 不发生”、“判断按……写”；年终报告这类需要时除外",
+   "key": "voice",
+   "max_pct": 60
+  },
+  {
+   "id": "tells",
+   "text": "去 AI 味脚本给出的上限",
+   "note": "design scripts/ai_tells.py 的建议（含同一句式重复 3 次以上）；评审证明是误报才可不封顶",
+   "key": "voice",
+   "max_pct": "ai_tells"
+  },
+  {
+   "id": "missing",
+   "text": "缺了同事一定会问的重要内容",
+   "note": "评审要说出具体缺什么；不按固定板块清单查",
+   "key": "story",
+   "max_pct": 70
+  },
+  {
+   "id": "reason",
+   "text": "用户上次提的理由还没解决",
+   "note": "对应的评分项（不含 share_ready）",
+   "key": "*",
+   "max_pct": 70
+  }
+ ],
+ "steps": [
+  "评审先冷读：只看用户的原话，以同事身份打开作品，先给 share_ready（愿意拿给同事）打分，再看其他材料",
+  "执行者交付前、评审打分时都跑 design scripts/ai_tells.py（旁白加 --spoken），引用结果",
+  "执行者自己试 2–4 个配音样本，挑最自然的；配音好坏算在讲稿 / 旁白的分里",
+  "做到 15–20% 时把预览发给用户看方向（不问分数，默认继续）",
+  "用户的分数低于及格线时，评审通过也不上线：继续干活，发预览只问能不能上线"
+ ],
+ "source": "marathon default profile",
+ "saved": "2026-11-05T02:30:00.000Z"
+}

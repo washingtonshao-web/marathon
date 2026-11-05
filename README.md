@@ -29,11 +29,12 @@ Costs are priced from the runs' own transcripts by token type; Codex ran on a su
 ## What it does
 
 - **Asks once, then works.** At most five kickoff questions, defaults preselected, one click to confirm. Away? After 10 minutes it starts on the defaults.
-- **Targets you can check.** Benchmark, numeric targets and a pass mark are fixed before work starts.
+- **Done means you would use it.** Benchmark, numeric targets and a pass mark are fixed before work starts, but the score is only the floor: a run is done when neither reviewer lists a critical or major problem and both say they would use the result as is.
+- **An early look at the direction.** At 15–20% of the budget you get a preview and one question; if you don't answer, it keeps going.
 - **Parallel workers.** Several bounded workers (four at a time in the default balanced mode) write code, research, test and polish; each returns a ≤300-word summary, full reports go to files.
-- **Two-model review gate.** Claude Opus and GPT-6-Astra score the same frozen commit independently; big disagreements are ruled on with evidence.
+- **Two-model review gate.** Claude Opus and GPT-6-Astra score the same frozen commit independently; big disagreements are ruled on with evidence. Each review starts with the problems a colleague would notice, worst first, and reviewers use games, sites and tools hands-on before they score.
 - **Never needs "continue".** A stop hook keeps the run going until a stop rule holds.
-- **Survives long contexts.** State lives in `STATE.md`; a fresh lead takes over at a quiet point past 150k tokens.
+- **Survives long contexts.** State lives in `STATE.md`; a fresh lead takes over at a quiet point past 300k tokens; the stop hook reminds the lead when it is time.
 - **Counts the cost.** A ledger row per worker and Claude spend priced by token type.
 - **Ships, then reports.** Commit, deploy, verify the live version, then a memo with limits and options.
 - **Never decides the risky things for you.** Sign-ins, payments, public publishing, deletions and extra budget always wait for your answer.

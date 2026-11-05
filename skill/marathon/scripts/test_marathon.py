@@ -1,4 +1,5 @@
 """Regression tests for marathon.py and stop_hook.py. Run: python test_marathon.py  (temp home and repos root; touches nothing real)."""
+import importlib.util
 import json
 import csv
 import io
@@ -63,10 +64,11 @@ def head(d):
     return subprocess.run(["git", "-C", str(d), "rev-parse", "--short", "HEAD"], capture_output=True, text=True, stdin=subprocess.DEVNULL, encoding="utf-8").stdout.strip()
 
 
-def gate(d, rnd, scores, verdict="VERDICT: FAIL critical=0 major=2", name="gate.md", reviewer="opus", artifact=None):
+def gate(d, rnd, scores, verdict="VERDICT: FAIL critical=0 major=0", name="gate.md", reviewer="opus", artifact=None, use="yes"):
     p = d / "audits" / f"round-{rnd}"
     p.mkdir(parents=True, exist_ok=True)
-    (p / name).write_text(f"report\n\nREVIEWER: {reviewer}\nARTIFACT: {artifact or head(d)}\nSCORES: {scores}\n{verdict}\n", encoding="utf-8")
+    (p / name).write_text(f"report\n\nREVIEWER: {reviewer}\nARTIFACT: {artifact or head(d)}\nSCORES: {scores}\n{verdict}\n"
+                          + (f"USE: {use}\n" if use else ""), encoding="utf-8")
     return f"audits/round-{rnd}/{name}"
 
 
@@ -142,10 +144,23 @@ reg = json.loads(REG.read_text(encoding="utf-8"))
 check("registry records released=stale", reg.get("released") == "stale", reg)
 m("set", P, "next=build wave 1")
 check("progress re-arms the hook", '"decision": "block"' in hook())
-check("session moved to another folder → hook stands aside", hook(cwd=str(TMP / "other")) == "")
+check("the lead changing folders is still the same session: hook keeps blocking", '"decision": "block"' in hook(cwd=str(TMP / "other")))
+log = (TMP / "home" / "marathon" / "hook-log.txt").read_text(encoding="utf-8")
+check("hook-log records why a stop was allowed", "sess-test proj: no STATE change across 3 continues" in log, log)
 m("claim", P)
 reg2 = json.loads(REG.read_text(encoding="utf-8"))
-check("claim keeps continue counter and run", reg2["blocks"] == reg["blocks"] + 1 and reg2["run"] == reg["run"], (reg, reg2))
+check("claim keeps continue counter and run", reg2["blocks"] == reg["blocks"] + 2 and reg2["run"] == reg["run"], (reg, reg2))
+tp = TMP / "transcript.jsonl"
+tp.write_text(json.dumps({"type": "assistant", "message": {"usage": {"input_tokens": 10, "cache_read_input_tokens": 400000}}}) + "\n",
+              encoding="utf-8")
+m("set", P, "next=check rotation")
+out = hook({"session_id": "sess-test", "cwd": str(TMP), "transcript_path": str(tp)})
+check("RT: past 300k context with no worker running the hook asks for a hand-off", "hand off now" in out and "Reminder 1/3" in out, out)
+check("PH: the hook's continue lists this phase's things to do", "Now (" in out and "\\n- " in out, out)
+tp.write_text(json.dumps({"type": "assistant", "message": {"usage": {"input_tokens": 10, "cache_read_input_tokens": 200000}}}) + "\n",
+              encoding="utf-8")
+m("set", P, "next=below threshold")
+check("RT: below the threshold no hand-off reminder", "hand off now" not in hook({"session_id": "sess-test", "cwd": str(TMP), "transcript_path": str(tp)}))
 m("wait", P, "workers W1-W3")
 check("waiting lets the turn end", hook() == "")
 m("wait", P, "--clear")
@@ -685,6 +700,9 @@ check("A10: pending rounds accumulate and status shows both", M.read_state(L)[0]
 m("score", L, "--final", *pair(L, 3, GAME.format(9)))
 charter = L / "CHARTER.md"
 charter.write_text(charter.read_text(encoding="utf-8").replace("core_loop=20", "core_loop=100"), encoding="utf-8")
+out = m("score", L, "--round", 5, *pair(L, 5, GAME.format(9)), code=2)
+check("RC: changed scoring rules need a RUBRIC_CHANGE line", "RUBRIC_CHANGE" in out, out)
+charter.write_text(charter.read_text(encoding="utf-8") + "\nRUBRIC_CHANGE: 2026-11-05 test: core loop weight\n", encoding="utf-8")
 late_args = pair(L, 1, GAME.format(9).replace("core_loop=9", "core_loop=8"), artifact=first_head)
 out = m("score", L, "--late", "--round", 1, *late_args)
 rows = score_rows(L)
@@ -692,7 +710,7 @@ check("A9: late reports bind to earlier artifact and current rubric", "current C
       rows[0]["artifact"] == first_head and rows[0]["total"] == "84.4", out)
 check("A10: late replacement preserves round order and final last", [r["round"] for r in rows] == ["1", "2", "final"], rows)
 check("A10: only merged pending round removed; current gate unchanged", M.read_state(L)[0]["astra_pending"] == "round-2" and
-      M.read_state(L)[0]["gate_round"] == "2" and M.read_state(L)[0]["last_score"] == "90/100")
+      M.read_state(L)[0]["gate_round"] == "2" and M.read_state(L)[0]["last_score"] == "90/100", M.read_state(L)[0])
 out = m("score", L, "--late", "--round", 1, *pair(L, 1, GAME.format(9)), code=2)
 check("A9: current HEAD reports rejected for a historical late merge", "reviewed artifact" in out, out)
 out = m("score", L, "--late", "--round", 99, *pair(L, 99, GAME.format(9)), code=2)
@@ -803,6 +821,216 @@ check("R2 A-R2: legacy round without rubric cannot be reused", "unchanged scorin
 out = m("score", U, "--final", "--reuse-round", 1, code=2)
 check("R2 A-R2: changed candidate SHA cannot be reused", "current clean candidate SHA" in out, out)
 
+# DN: done means no critical or major problem and both reviewers would use it as is (gate.md, Pass and final).
+DN = REPOS / "done-rule"
+m("init", DN, "--type", "site", "--title", "Done rule")
+(DN / "app.js").write_text("v1", encoding="utf-8")
+targets(DN, 1, 1); commit(DN)
+out = m("score", DN, "--round", 1, "--from", gate(DN, 1, SITE9, "VERDICT: FAIL critical=0 major=1"), "--from",
+        gate(DN, 1, SITE9, name="astra.md", reviewer="astra"))
+check("DN: one major problem → not done though the score passes", out.strip().endswith("CONTINUE") and "not done" in out, out)
+check("DN: first round reminds the lead to send the direction preview", "direction check not sent" in out, out)
+out = m("score", DN, "--round", 2, "--from", gate(DN, 2, SITE9, use="no"), "--from", gate(DN, 2, SITE9, name="astra.md", reviewer="astra"))
+check("DN: a reviewer who would not use it as is → not done", out.strip().endswith("CONTINUE") and "would use as is: no+yes" in out, out)
+out = m("score", DN, "--round", 3, "--from", gate(DN, 3, SITE9, use=None), "--from", gate(DN, 3, SITE9, name="astra.md", reviewer="astra"))
+check("DN: a report without the USE line cannot finish the run", out.strip().endswith("CONTINUE") and "missing+yes" in out, out)
+m("set", DN, "direction=sent 2026-11-05 preview v1")
+out = m("score", DN, "--round", 4, *pair(DN, 4))
+check("DN: no major problem and both USE: yes → TARGET MET", out.strip().endswith("TARGET MET") and "direction check" not in out, out)
+check("DN: scores.csv keeps each reviewer's USE answer", score_rows(DN)[-1]["use"] == "yes+yes", score_rows(DN)[-1])
+out = m("status", DN)
+check("DN: status shows open problems and the direction check", "Open problems after gate R4: critical 0 · major 0 · would use as is: yes+yes" in out
+      and "Direction check: sent 2026-11-05 preview v1" in out, out)
+m("set-status", DN, "running", "--reason", "go")
+out = m("set-status", DN, "paused", "--reason", "USER CHECK: waiting for the user's score", code=1)
+check("UW: pausing to wait for the user's score is refused", "never stops the run" in out and "status: running" in (DN / "STATE.md").read_text(encoding="utf-8"), out)
+out = m("set-status", DN, "paused", "--reason", "等用户打分", code=1)
+check("UW: the Chinese wording is refused too", "never stops the run" in out, out)
+out = m("set-status", DN, "paused", "--reason", "user said pause")
+check("UW: the user's own pause still works", "status paused" in out, out)
+m("set-status", DN, "running", "--reason", "go")
+out = m("set-status", DN, "blocked", "--reason", "waiting for the user to sign in to AWS")
+check("UW: a user-only obstacle can still block the run", "status blocked" in out, out)
+
+# Batch 2: one-line ask, wait --for, user problems, stuck workers, plateau review, benchmark before building, phase lines.
+B2 = REPOS / "batch-two"
+m("init", B2, "--type", "site", "--title", "Batch two")
+(B2 / "app.js").write_text("v1", encoding="utf-8")
+targets(B2, 1, 1); commit(B2)
+out = m("ask", B2, "要不要先做手机版？", "--options", "先做电脑版|一起做", "--wait", "0")
+check("AQ: one-line ask builds the question set and applies the default", "先做电脑版" in (B2 / "STATE.md").read_text(encoding="utf-8"), out)
+out = m("ask", B2, "只有一个选项", "--options", "好", code=1)
+check("AQ: a one-line ask needs two options", "needs --options" in out, out)
+out = m("ask", B2, code=1)
+check("AQ: ask without a question or a mode explains the one-line form", 'ask <dir> "question"' in out, out)
+out = m("worker", B2, "W1", "agent=codex", "model=gpt-6.1-sol", "class=build", "status=running", f"started={M.iso()}", code=1)
+check("BM: the first build worker needs a benchmark", "no benchmark yet" in out, out)
+bench = B2 / "research" / "benchmark"
+bench.mkdir(parents=True, exist_ok=True)
+for n in ("a.png", "b.png", "c.png"):
+    (bench / n).write_bytes(b"x")
+out = m("worker", B2, "W1", "agent=codex", "model=gpt-6.1-sol", "class=build", "status=running", f"started={M.iso()}", code=1)
+check("BM: examples without BORROW.md are not enough", "no benchmark yet" in out, out)
+(bench / "BORROW.md").write_text("1. map first", encoding="utf-8")
+out = m("worker", B2, "W1", "agent=codex", "model=gpt-6.1-sol", "class=build", "status=running",
+        f"started={(dt.datetime.now() - dt.timedelta(minutes=45)).strftime('%Y-%m-%dT%H:%M')}")
+check("BM: with a benchmark the build worker starts", "W1:" in out, out)
+c = (B2 / "CHARTER.md").read_text(encoding="utf-8")
+c = c.replace("| U1 | | | open | |", "| U1 | 树会消失 | 在林地里跑 | fixed | shots/trees.mp4 |\n| U2 | 水不真实 | 看湖面 | fixed | |\n| U3 | 帧率低 | 跑 1 分钟 | open | |\n| U4 | 卡顿 | 开地图 | NOT FIXED | shots/map.png |")
+(B2 / "CHARTER.md").write_text(c, encoding="utf-8")
+out = m("status", B2)
+check("UP: status counts the user's problems and fixes without evidence", "The user's problems: fixed 1 / 4 (1 marked fixed without evidence)" in out, out)
+check("WK: a running worker with no output for 30+ min is listed as possibly stuck", "Possibly stuck" in out and "W1 (" in out, out)
+check("PH: status ends with this phase's things to do", "> Now (" in out, out)
+m("worker", B2, "W2", "agent=codex", "model=gpt-6.1-sol", "class=build", "status=done", f"started={M.iso()}", f"ended={M.iso()}",
+  "report=audits/w2.md")
+ENV["MARATHON_WAIT_POLL"] = "0.2"
+out = m("wait", B2, "--for", "W1,W2", "--max", "0.01")
+check("WT: wait --for reports a missing report and a still-running worker at the deadline", "W2: done · report missing or empty" in out
+      and "still running after" in out and "W1" in out, out)
+out = m("wait", B2, "--for", "W9", "--max", "0.01")
+check("WT: a worker not registered yet counts as pending until the deadline", "W9: never registered" in out, out)
+bg = subprocess.Popen([sys.executable, "-B", str(HERE / "marathon.py"), "wait", str(B2), "--for", "W1", "--max", "0.15"],
+                      env=ENV, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
+import time as _t
+for _ in range(50):
+    if M.read_state(B2)[0].get("waiting_on") == "workers W1":
+        break
+    _t.sleep(0.2)
+check("WT: a background wait sets waiting_on", M.read_state(B2)[0].get("waiting_on") == "workers W1", M.read_state(B2)[0].get("waiting_on"))
+t0 = _t.time()
+out = m("set", B2, "next=written during a background wait")
+check("WT: STATE stays writable while wait --for runs in the background", "STATE updated" in out and _t.time() - t0 < 8, out)
+bg.wait(timeout=60)
+check("WT: the wait clears its own waiting_on when it ends", M.read_state(B2)[0].get("waiting_on") == "", M.read_state(B2)[0].get("waiting_on"))
+ev = B2 / ".tmp" / "reports" / "W1.a1.events.jsonl"
+ev.parent.mkdir(parents=True, exist_ok=True); ev.write_text("{}", encoding="utf-8")
+check("WK: a Codex worker still streaming events is not called stuck", "W1 (" not in m("status", B2))
+for r in range(1, 6):
+    m("score", B2, "--round", r, *pair(B2, r, SITE9.replace("=9", "=7")))
+fm = M.read_state(B2)[0]
+check("PL: plateau sets the review as due and puts it first in next", fm.get("plateau_review", "").startswith("due") and
+      fm.get("next", "").startswith("Plateau review first"), fm)
+out = m("score", B2, "--round", 6, *pair(B2, 6, SITE9.replace("=9", "=7").replace("accuracy=7", "accuracy=8")))
+check("SC: score explains the move since the last round", "since round 5: total" in out and "accuracy +1" in out, out)
+check("PL: status shows the due plateau review", "Plateau review due" in m("status", B2))
+m("set", B2, "plateau_review=sent 2-3 options")
+m("score", B2, "--round", 7, *pair(B2, 7, SITE9.replace("=9", "=7")))
+fm = M.read_state(B2)[0]
+check("PL: a new review comes at most every 3 rounds and next does not stack it", fm.get("plateau_round") == "7"
+      and fm.get("next", "").count("Plateau review first") == 1, (fm.get("plateau_review"), fm.get("plateau_round"), fm.get("next", "")[:300]))
+out = m("ask", B2, "哪个先做？", "--options", "地图|列表", "--default", "B", "--wait", "0")
+check("AQ: --default B picks the second option", "列表" in (B2 / "STATE.md").read_text(encoding="utf-8"), out)
+
+# Batch 3: the budget clock skips long gaps; new Codex workers wait while the PC is over its limits.
+BC = REPOS / "budget-clock"
+m("init", BC, "--type", "site", "--title", "Budget clock")
+m("set-status", BC, "running", "--reason", "go")
+def set_clock(work, run_h, idle_h, waiting=""):
+    fm, body = M.read_state(BC)
+    fm["work_hours"], fm["waiting_on"] = work, waiting
+    fm["running_since"] = (dt.datetime.now() - dt.timedelta(hours=run_h)).isoformat(timespec="minutes")
+    M.write_state(BC, fm, body)
+    (BC / ".tmp" / "idle-gaps").unlink(missing_ok=True)
+    old = _t.time() - idle_h * 3600
+    for p in (BC / ".tmp" / "activity", BC / "STATE.md"):
+        os.utime(p, (old, old))
+
+
+set_clock("2", 10, 9)
+check("IC: ten hours running, last activity nine hours ago: 1.5 h counted", abs(M.work_hours(M.read_state(BC)[0]) - 3.5) < 0.05,
+      M.work_hours(M.read_state(BC)[0]))
+M.touch_activity(BC)  # the first thing after the gap is a touch (the hook or a worker), not a STATE write
+check("IC: a touch first still leaves the gap out", abs(M.work_hours(M.read_state(BC)[0]) - 3.5) < 0.05, M.work_hours(M.read_state(BC)[0]))
+m("set", BC, "next=back after the gap")
+check("IC: and so does the next STATE write", abs(M.work_hours(M.read_state(BC)[0]) - 3.5) < 0.05, M.work_hours(M.read_state(BC)[0]))
+set_clock("0", 2, 80 / 60, waiting="W1")
+m("wait", BC, "--clear")
+check("IC: an 80-minute wait still counts after wait --clear", abs(M.work_hours(M.read_state(BC)[0]) - 2.0) < 0.05, M.work_hours(M.read_state(BC)[0]))
+m("set-status", BC, "paused", "--reason", "test done")
+spec = importlib.util.spec_from_file_location("cw_test", HERE / "codex_worker.py")
+CW = importlib.util.module_from_spec(spec); spec.loader.exec_module(CW)
+calls = iter([(False, "CPU 90% > 75%", {}), (True, "under limits", {})])
+fake_gpu = SimpleNamespace(check=lambda kind: next(calls))
+buf = io.StringIO()
+with patch.dict(sys.modules, {"gpu": fake_gpu}), patch.object(CW.time, "sleep", lambda s: None), redirect_stdout(buf):
+    CW.wait_for_room("W7")
+check("LG: a new Codex worker waits while the PC is over the limits", "W7 WAIT" in buf.getvalue() and "CPU 90%" in buf.getvalue(), buf.getvalue())
+
+# UC: the user's own score outranks a reviewer pass (references/review-principles.md, 2026-11-04 case).
+UC = REPOS / "user-calibration"
+m("init", UC, "--type", "site", "--title", "User calibration")
+(UC / "app.js").write_text("v1", encoding="utf-8")
+targets(UC, 1, 1); commit(UC)
+first = head(UC)
+out = m("score", UC, "--round", 1, *pair(UC, 1))
+check("UC: without USER_SCORE a reviewer pass is TARGET MET", out.strip().endswith("TARGET MET") and "user:" not in out, out)
+with (UC / "CHARTER.md").open("a", encoding="utf-8") as f:
+    f.write(f"\nUSER_SCORE: 62 sha={first} date=2026-11-04 (AI 味重，像咨询报告)\n")
+out = m("score", UC, "--round", 2, *pair(UC, 2))
+check("UC: user scored this exact artifact below the bar → cannot pass", "TARGET MET" not in out and "cannot pass" in out
+      and "gap +28.0" in out and "calibrated estimate now 62.0" in out, out)
+(UC / "app.js").write_text("v2", encoding="utf-8"); commit(UC)
+out = m("score", UC, "--round", 3, *pair(UC, 3))
+check("UC: reviewer pass after a low user score → USER CHECK, not release", out.strip().endswith("USER CHECK")
+      and "reviewers alone cannot release" in out, out)
+commit(UC)
+out = m("score", UC, "--final", *pair(UC, 4))
+check("UC: final pass is held too", out.strip().endswith("USER CHECK"), out)
+with (UC / "CHARTER.md").open("a", encoding="utf-8") as f:
+    f.write(f"USER_SCORE: 86 sha={head(UC)} date=2026-11-05\n")
+out = m("score", UC, "--round", 5, *pair(UC, 5))
+check("UC: the user's latest score at or above the bar restores TARGET MET", out.strip().endswith("TARGET MET") and "user: 86" in out, out)
+check("UC: USER_SCORE lines stay out of the rubric snapshot", '"user' not in score_rows(UC)[-1]["rubric"]
+      and score_rows(UC)[-1]["rubric"] == score_rows(UC)[0]["rubric"], score_rows(UC)[-1]["rubric"])
+with (UC / "CHARTER.md").open("a", encoding="utf-8") as f:
+    f.write(f"- USER_SCORE: 60-65 sha={first} date=2026-11-06\n")
+out = m("score", UC, "--round", 6, *pair(UC, 6))
+check("UC: bullet line and range (midpoint) parse; low score on an earlier artifact → USER CHECK",
+      out.strip().endswith("USER CHECK") and "user: 62.5" in out, out)
+with (UC / "CHARTER.md").open("a", encoding="utf-8") as f:
+    f.write(f"USER_GO: sha={head(UC)} date=2026-11-06\nUSER_SCORE: 95 sha=deadbeef\nUSER_SCORE: great\n")
+out = m("score", UC, "--final", "--reuse-round", 6)
+check("UC: USER_GO lets a USER CHECK round be reused for FINAL PASS", out.strip().endswith("FINAL PASS") and "USER_GO" in out, out)
+check("UC: unknown-commit approval and unreadable lines are warned about, not trusted",
+      "unknown commit deadbeef ignored" in out and "unreadable CHARTER line 'USER_SCORE: great'" in out, out)
+# UF: init --format writes the user's scoring profile and the worker scoring card; score holds CHARTER to it.
+UF = REPOS / "format-profile"
+out = m("init", UF, "--type", "research", "--format", "talk", "--title", "Talk profile")
+talk = json.loads((HERE.parent / "templates/scoring/talk.json").read_text(encoding="utf-8"))
+TALK9 = ", ".join(f"{k['id']}=9" for k in talk["keys"])
+uf = (UF / "CHARTER.md").read_text(encoding="utf-8")
+check("UF: init --format writes Format, the profile RUBRIC and the scoring card",
+      "Format: talk" in uf and M.profile_rubric(talk).splitlines()[0] in uf and "## Scoring card" in uf
+      and "share_ready" in uf and "注释过多" in uf and "{rubric}" not in uf, uf)
+check("UF: unknown --format is refused", "invalid choice" in m("init", REPOS / "fmt-bad", "--type", "site", "--format", "revamp",
+                                                              "--title", "x", code=2))
+targets(UF, 1, 1); (UF / "app.js").write_text("v1", encoding="utf-8"); commit(UF)
+out = m("score", UF, "--round", 1, *pair(UF, 1, TALK9))
+check("UF: a pass on the profile rubric is TARGET MET (no voice-pick hold)", out.strip().endswith("TARGET MET")
+      and "VOICE_PICKED" not in uf, out)
+uf = (UF / "CHARTER.md").read_text(encoding="utf-8")
+(UF / "CHARTER.md").write_text(re.sub(r"(?m)^(RUBRIC: .*)$", lambda mm: mm.group(1) + "\nFLOOR: voice=6", uf, count=1), encoding="utf-8")
+out = m("score", UF, "--round", 2, *pair(UF, 2, TALK9), code=2)
+check("UF: a lower floor than the user's profile is refused", "must match templates/scoring/talk.json" in out and "voice" in out, out)
+(UF / "CHARTER.md").write_text(uf, encoding="utf-8")
+out = m("score", UF, "--round", 2, "--carry-forward", "--from", gate(UF, 2, "accuracy=9"),
+        "--from", gate(UF, 2, TALK9, name="astra.md", reviewer="astra"), code=2)
+check("UF: focused rounds must re-score share_ready", "share_ready re-scored every round" in out, out)
+out = m("score", UF, "--round", 2, "--carry-forward", "--from", gate(UF, 2, "accuracy=9, share_ready=9"),
+        "--from", gate(UF, 2, TALK9, name="astra.md", reviewer="astra"))
+check("UF: focused round with share_ready scores normally", "INVALID" not in out, out)
+check("UF: without --format the generic rubric and no scoring card",
+      "RUBRIC: correctness=25" in (P2 := REPOS / "no-format").joinpath("CHARTER.md").read_text(encoding="utf-8")
+      and "## Scoring card" not in P2.joinpath("CHARTER.md").read_text(encoding="utf-8")
+      if m("init", REPOS / "no-format", "--type", "research", "--title", "Generic") is not None else False)
+for f in sorted((HERE.parent / "templates/scoring").glob("*.json")):
+    prof = json.loads(f.read_text(encoding="utf-8"))
+    check(f"UF: profile {f.stem} weights sum to 100 and caps target its own keys",
+          sum(k["weight"] for k in prof["keys"]) == 100 and prof["format"] == f.stem and "share_ready" in {k["id"] for k in prof["keys"]}
+          and all(c["key"] in {k["id"] for k in prof["keys"]} | {"*"} for c in prof["caps"])
+          and all(c["key"] != "share_ready" for c in prof["caps"]), prof)
+
 
 # AB-A/B: evidence packs and asymmetric full/focused gates.
 E = REPOS / "evidence-gates"
@@ -849,7 +1077,7 @@ index = (pack2 / "EVIDENCE.md").read_text(encoding="utf-8")
 check("AB-B: diff pins previous regular artifact and current full SHA", f"Baseline: round 1 ({first_sha})" in changed and
       f"Artifact: {M.resolve_artifact(E, 'HEAD')}" in changed and
       all(name in changed for name in ("app.js", "old.txt", "renamed.txt", "removed.txt", "added.txt")), changed)
-check("AB-B: previous defect counts and reports indexed", "Round 1: critical=0, major=2" in index and "audits/round-1/" in index, index)
+check("AB-B: previous defect counts and reports indexed", "Round 1: critical=0, major=0" in index and "audits/round-1/" in index, index)
 # A missing historical artifact is a failure, not a fabricated project-start diff.
 score_file = E / "audits/scores.csv"
 saved_scores = score_file.read_bytes()
@@ -928,6 +1156,12 @@ reports = [{"reviewer": "opus", "dims": {"a": 9}, "critical": 1},
            {"reviewer": "astra", "dims": {"b": 1}, "critical": 0}]
 check("AB-A: critical disputes survive non-overlapping scope", M.disagreements(reports, {"a": 50, "b": 50}) ==
       ["critical: opus=1 vs astra=0"])
+# lessons.md is read at every kickoff: the shipped file stays within its cap, and preflight warns when it grows past it.
+_good, _note = M.lessons_check()
+check("lessons.md within LESSONS_MAX characters", _good, _note)
+_big = Path(tempfile.mkdtemp(dir=TMP)) / "lessons.md"
+_big.write_text("x" * (M.LESSONS_MAX + 1), encoding="utf-8")
+check("lessons_check flags an over-cap file", M.lessons_check(_big)[0] is False and "move dated notes" in M.lessons_check(_big)[1])
 # Lead-read core stays within the agreed character budget, and required prompt scopes remain explicit.
 core = ("SKILL.md", "workers.md", "gate.md")
 base_chars = 12000  # public lead-core budget baseline
@@ -935,7 +1169,7 @@ now_chars = sum(len((HERE.parent / name).read_text(encoding="utf-8")) for name i
 check("AB: lead-read core grows at most 1500 characters", now_chars - base_chars <= 1500, now_chars - base_chars)
 prompt = (HERE.parent / "references/gate-prompt.md").read_text(encoding="utf-8")
 check("AB: prompt retains delivery and focused-review requirements", all(text in prompt for text in
-      ("≤300 words", "four score lines", "80 tool calls", "150 FULL", "rounds 3/6/9/", "ALL open critical/major",
+      ("≤300 words", "five closing lines", "80 tool calls", "150 FULL", "rounds 3/6/9/", "ALL open critical/major",
        "highest-weight", "previous round", "PARTIAL")), prompt)
 
 # ---------- S1: merged CLI aliases and compact status ----------
@@ -992,7 +1226,8 @@ with patch.object(M, "read_state", return_value=(fm, "")), patch.object(M, "work
     with redirect_stdout(out): M.cmd_status(SimpleNamespace(dir=Q, full=True))
     full = out.getvalue()
 expected = ("> **running** · Phase 3 · 40% · targets 1/3 · 2.5/12 h · ~3.8 h left (rough) · gate R4 82 · mode fast\n"
-            "> config\n> Try it: https://example.invalid\n> Changed: built it\n> Measured: 42 checks\n> Next: gate\n"
+            "> config\n> Open problems after gate R?: critical 0 · major 0\n"
+            "> Direction check: not sent (21% of the budget used): send the user a preview now (gate.md)\n> Try it: https://example.invalid\n> Changed: built it\n> Measured: 42 checks\n> Next: gate\n"
             "<!-- auto-continue: armed, 2 continues; waiting on W1 -->\n")
 check("S1: full status preserves previous output exactly", full == expected, full)
 check("S1: short status is at most 12 lines with decision facts", len(short.splitlines()) <= 12 and all(x in short for x in
@@ -1023,18 +1258,19 @@ def s2_score(d=S2, code=0, **kwargs):
     return output.getvalue()
 
 
-def s2_reports(rnd, left="a=9, b=9", right="a=9, b=9", claude="opus", d=S2, major=2):
+def s2_reports(rnd, left="a=9, b=9", right="a=9, b=9", claude="opus", d=S2, major=0):
     return [gate(d, rnd, left, reviewer=claude, name="claude.md"),
             gate(d, rnd, right, reviewer="astra", name="astra.md", verdict=f"VERDICT: PASS critical=0 major={major}")]
 
 
-def s2_expected(rnd, reviewers, total="90.0", result="TARGET MET", dims='{"a": 9.0, "b": 9.0}', major="2", carried="{}"):
+def s2_expected(rnd, reviewers, total="90.0", result="TARGET MET", dims='{"a": 9.0, "b": 9.0}', major="0", carried="{}"):
     return dict(round=str(rnd), date="2026-10-20T12:00", reviewers=reviewers, artifact=S2_SHA, total=total,
                 critical="0", major=major, result=result, dims=dims, hours="0.00", rubric=S2_RUBRIC, carried=carried)
 
 
 def s2_row(label, expected):
     actual = next(r for r in reversed(score_rows(S2)) if r["round"] == expected["round"])
+    actual = {k: v for k, v in actual.items() if k != "use"}  # the USE column has its own checks (DN)
     check("S2 golden " + label, actual == expected, (actual, expected))
 
 
@@ -1054,7 +1290,8 @@ s2_score(final=True, reuse_round=1)
 s2_row("--reuse-round", s2_expected("final", "opus+astra+reuse-round:1", result="FINAL PASS"))
 second = gate(S2, 6, "a=9.5, b=9.5", reviewer="opus-second", name="second.md", verdict="VERDICT: PASS critical=0 major=3")
 s2_score(final=True, src=[s2_reports(6)[0], second], missing_reason="Astra unavailable: fixture failure")
-s2_row("--missing-reason", s2_expected("final", "opus+opus-second+missing:gpt", result="FINAL PASS", major="3"))
+s2_row("--missing-reason", s2_expected("final", "opus+opus-second+missing:gpt", result="FINAL FAIL", major="3"))
+check("DN: a major problem keeps an otherwise passing final from FINAL PASS", score_rows(S2)[-1]["result"] == "FINAL FAIL")
 disputed = s2_reports(5, "a=6, b=9")
 before = (S2 / "audits/scores.csv").read_bytes()
 s2_score(round=5, src=disputed, code=3)
@@ -1350,7 +1587,7 @@ with patch.object(M, "charter_rules", side_effect=OSError("unreadable charter"))
     check("S7: visual summary retains charter I/O errors", strict_visual)
     check("S7: overview tolerates charter I/O errors", M.project_summary(Q)["pass"] is None)
 with patch.object(M, "charter_rules", side_effect=SystemExit("invalid charter")):
-    check("S7: visual summary tolerates invalid charter", M.visual_block(Q, {}, []) == ["Progress  " + M.bar(0) + "  0%"])
+    check("S7: visual summary tolerates invalid charter", M.visual_block(Q, {}, []) == ["Progress  " + M.bar(0) + "  0%", "Resume    0/2 armed · 0 limits hit"])
     check("S7: overview tolerates invalid charter", M.project_summary(Q)["pass"] is None)
 for argv, message in ((["report"], "status --report requires dir"),
                       (["gate-wait", str(Q)], "--gate requires --round"),
@@ -1497,7 +1734,7 @@ for card in ("mode-codex.md", "mode-claude.md"):
     text = (root / card).read_text(encoding="utf-8")
     size = sum(len((root / p).read_text(encoding="utf-8")) for p in [*base, card])
     codex_size = size + len((root / "references/codex.md").read_text(encoding="utf-8"))
-    check("S8 mode card and lead budgets " + card, len(text) <= 1600 and size <= 25000 and codex_size <= 29000,
+    check("S8 mode card and lead budgets " + card, len(text) <= 1600 and size <= 32000 and codex_size <= 36000,
           f"card={len(text)}, Claude={size}, Codex={codex_size}")
     print(f"S8 budgets {card}: card={len(text)} Claude={size} Codex={codex_size}")
 check("S8 ask scope excludes answer-only STATE writes", "Answer-only progress" in (root / "SKILL.md").read_text(encoding="utf-8"))

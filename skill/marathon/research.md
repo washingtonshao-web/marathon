@@ -19,7 +19,7 @@ Research is the cheapest quality lever: most past rework came from building befo
 | Research | literature map (key papers, reviews, guidelines); industry practice and terms; numbers with sources; tools and pipelines (versions, benchmarks); public datasets for verification (size, licence, truth sets); competitors and products; open controversies; the decision frame |
 
 ## `research/BRIEF.md` (≤5,000 words)
-1. Benchmark: what "as good as <benchmark>" concretely means, as a list, with a `research/benchmark/` contact sheet. Gate agents compare against this.
+1. Benchmark: what "as good as <benchmark>" concretely means, as a list, with a `research/benchmark/` contact sheet. Gate agents compare against this. Before the first build or ui worker, `research/benchmark/` holds 3–5 of the best examples of the same kind and `BORROW.md` lists what to borrow from them; `marathon.py worker` refuses the first build worker otherwise. When nothing of the same kind exists, write `BENCHMARK: none <why>` in CHARTER.
 2. Key facts and numbers, each with a source.
 3. Sources, assets, tools and datasets chosen (and rejected, with the reason).
 4. Risks and traps.

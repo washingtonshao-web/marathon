@@ -1,0 +1,108 @@
+{
+ "format": "report",
+ "pass_total": 85,
+ "keys": [
+  {
+   "id": "share_ready",
+   "label": "愿意拿给同事看",
+   "full_marks": "评审以同事身份读完：用户会不会直接转给同事，不用改",
+   "weight": 25,
+   "floor_pct": 80
+  },
+  {
+   "id": "correctness",
+   "label": "正确性",
+   "full_marks": "抽查的数字和结论与一手来源一致",
+   "weight": 10,
+   "floor_pct": 80
+  },
+  {
+   "id": "answers_questions",
+   "label": "回答了问题",
+   "full_marks": "用户问的每个问题都有直接答案",
+   "weight": 20,
+   "floor_pct": 80
+  },
+  {
+   "id": "decision_value",
+   "label": "有看法",
+   "full_marks": "给出明确看法和理由；概率、到期日只在年终报告这类场合用",
+   "weight": 15,
+   "floor_pct": 80
+  },
+  {
+   "id": "depth",
+   "label": "深度",
+   "full_marks": "读过该读的文献，用行业标准术语",
+   "weight": 15,
+   "floor_pct": 80
+  },
+  {
+   "id": "presentation",
+   "label": "版面",
+   "full_marks": "结论先行，图表清楚，手机可读",
+   "weight": 15,
+   "floor_pct": 70
+  }
+ ],
+ "caps": [
+  {
+   "id": "notes",
+   "text": "注释过多",
+   "note": "正文每千字超过 7 处“来源 / 截至 / [S12]”；来源放抽屉、脚注或方法页",
+   "key": "presentation",
+   "max_pct": 60
+  },
+  {
+   "id": "judgment",
+   "text": "判断格式本身",
+   "note": "概率表、到期日、复核日、“倾向发生 / 不发生”、“判断按……写”；年终报告这类需要时除外",
+   "key": "decision_value",
+   "max_pct": 60
+  },
+  {
+   "id": "opener",
+   "text": "首屏计数句或讲文档自己的话",
+   "note": "如“12 条判断：6 条倾向发生，4 条……”“本页口径”",
+   "key": "presentation",
+   "max_pct": 60
+  },
+  {
+   "id": "tells",
+   "text": "去 AI 味脚本给出的上限",
+   "note": "design scripts/ai_tells.py 的建议（含同一句式重复 3 次以上）；评审证明是误报才可不封顶",
+   "key": "presentation",
+   "max_pct": "ai_tells"
+  },
+  {
+   "id": "missing",
+   "text": "缺了同事一定会问的重要内容",
+   "note": "评审要说出具体缺什么；不按固定板块清单查",
+   "key": "answers_questions",
+   "max_pct": 70
+  },
+  {
+   "id": "evidence",
+   "text": "只列证据，没有自己的建议",
+   "note": "每一节要落到“我建议……因为……”；免责只说一次（2026-11-05）",
+   "key": "decision_value",
+   "max_pct": 50
+  },
+  {
+   "id": "reason",
+   "text": "用户上次提的理由还没解决",
+   "note": "对应的评分项（不含 share_ready）",
+   "key": "*",
+   "max_pct": 70
+  }
+ ],
+ "steps": [
+  "评审先冷读：只看用户的原话，以同事身份打开作品，先给 share_ready（愿意拿给同事）打分，再看其他材料",
+  "评审引用 5 句最像机器写的话",
+  "执行者交付前、评审打分时都跑 design scripts/ai_tells.py（旁白加 --spoken），引用结果",
+  "做到 15–20% 时把预览发给用户看方向（不问分数，默认继续）",
+  "用户的分数低于及格线时，评审通过也不上线：继续干活，发预览只问能不能上线"
+ ],
+ "source": "marathon default profile",
+ "saved": "2026-11-05T02:30:00.000Z"
+}

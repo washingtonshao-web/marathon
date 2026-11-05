@@ -33,8 +33,9 @@ Click your choices and Confirm, or reply in text ("agree", "2B"). If you do not 
 
 | Phase | What the lead does |
 |---|---|
-| Charter | Writes the benchmark, numeric targets and the pass mark (for example 78/100 with no critical issues) into `CHARTER.md` |
+| Charter | Writes, in your own words, what the result is for and two or three ways it could miss; then the benchmark, numeric targets and the pass mark (for example 78/100 with no critical issues) into `CHARTER.md` |
 | Research | Sends workers to collect what the build needs: references, data, prior art |
+| Direction check | At 15–20% of the budget, or with the first version you can open, sends you a preview and one question; no answer means it keeps going |
 | Waves | Writes short briefs and launches workers in parallel (four at a time in the default balanced mode); reads only their ≤300-word summaries |
 | Gate | Freezes a commit, prepares an evidence pack, and has two reviewers score it independently |
 | Fix | Plans the next wave from the reviewers' largest gaps |
@@ -62,6 +63,8 @@ The fallback order is used only when a worker cannot start (sign-in expired, quo
 Every round, two reviewers who did not build anything score the same frozen commit against the charter: Claude Opus and GPT-6-Astra. Astra reviews everything every round. To save cost, Opus reviews in full on round 1, every third round and the final round, and reviews only what changed in between, carrying its earlier scores for the rest.
 
 When the two disagree a lot (a key 3 points apart, totals 10 apart, or a critical issue seen by only one), `marathon.py score` stops with **ADJUDICATE**. The lead must rule on each point with evidence (a test, a reproduced bug, a screenshot) before the round counts. The final gate always needs a full review from both models.
+
+Each review starts with a problem list (critical, major, minor), each with where it is, what a person using it would think and the fix, and ends with `USE: yes|no`: would the reviewer use it as is. A run is done only when neither reviewer lists a critical or major problem and both write `USE: yes`; the total and the per-key floors are the minimum on top of that. Reviewers use games, sites and tools for ten minutes like a first-time user before scoring. Scoring is set per kind of work (talk, report, tool, film, game) in `templates/scoring/`.
 
 ## Files a run keeps
 

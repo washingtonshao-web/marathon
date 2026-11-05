@@ -11,11 +11,11 @@ New codex: GPT-6.1-Sol high → GPT-6-Astra high → Claude Sonnet 5.5; `set <di
 
 Classes: build/ui/test/data/research/ops/gate; gate needs --sha (gate.md). --model overrides. --brief: caller-relative/absolute; --out: project-relative, no escape/directories/workers.csv/.tmp/reports/. Repeatable --image on run. IDs: letters/digits/_/-, consistent case, unique/task.
 
-Newest desktop Codex; subst drives resolved. Non-gates: full access unless --read-only; gates: pinned snapshot, scratch-only writes.
+Highest-version desktop Codex; subst drives resolved. Non-gates: full access unless --read-only; gates: pinned snapshot, scratch-only writes.
 
 Harness deletes .tmp/<id>/ after non-gate DONE/FAILED; TIMEOUT/PARTIAL/infra or --keep-scratch retains it. Shared folders excluded; leftovers reported. Unrelated integrations stay unused. Browser: `marathon.py lock <dir> browser --owner <id>`; if held do other work; close/--release, renew before TTL.
 
-Attempts: .tmp/reports/<id>.a<N>.md/events/errors. Only zero-exit DONE/PARTIAL/FAILED promotes <id>.md/--out. Failed attempts retain old output; inspect current ledger/report.
+Attempts: .tmp/reports/<id>.a<N>.md/events/errors. Only zero-exit DONE/PARTIAL/FAILED promotes <id>.md/--out (or turn.completed + 60 s: killed). Failed attempts retain old output; see ledger/report.
 
 `codex_backends`: subscription by default; both MARATHON_API_BASE_URL and MARATHON_API_KEY enable api,subscription. Use a Responses-compatible base URL (e.g. https://api.openai.com/v1). --backend api overrides the start once. Keys stay in the child environment; no permanent config edits. Gates use identical routing.
 Before tools, infra failure (401/403/429/5xx/connect/timeout) retries the SAME model across backends before advancing models. After tools, capacity/5xx/stream error (not time limit) resumes the same thread ≤2 times with the next Codex model (same model after 60 s if none), retaining usage; otherwise inspect/steer. weak/PARTIAL/FAILED are task results. Without turn.completed, usage comes from the session log. Chains only advance; in-chain overrides start there, others keep Claude fallbacks only. FALLBACK: lead launches Claude with the same brief. Gates try subsequent configured GPT models only; only astra* satisfies score. ASTRA UNAVAILABLE: gate.md. worker_fallback=none disables model fallback.

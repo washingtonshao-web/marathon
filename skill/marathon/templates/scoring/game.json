@@ -1,0 +1,78 @@
+{
+ "format": "game",
+ "pass_total": 85,
+ "keys": [
+  {
+   "id": "share_ready",
+   "label": "愿意给朋友玩",
+   "full_marks": "评审玩 10 分钟：用户会不会把它发给朋友",
+   "weight": 30,
+   "floor_pct": 80
+  },
+  {
+   "id": "core_loop",
+   "label": "核心玩法",
+   "full_marks": "30 秒上手，有想继续玩的理由",
+   "weight": 20,
+   "floor_pct": 80
+  },
+  {
+   "id": "visual_art",
+   "label": "美术",
+   "full_marks": "风格统一，近看不穿帮",
+   "weight": 15,
+   "floor_pct": 80
+  },
+  {
+   "id": "ui_ux",
+   "label": "界面",
+   "full_marks": "目标清楚，操作顺手",
+   "weight": 10,
+   "floor_pct": 80
+  },
+  {
+   "id": "feel",
+   "label": "手感",
+   "full_marks": "反馈及时，有分量",
+   "weight": 10,
+   "floor_pct": 80
+  },
+  {
+   "id": "content",
+   "label": "内容",
+   "full_marks": "关卡和文本有料",
+   "weight": 10,
+   "floor_pct": 80
+  },
+  {
+   "id": "performance",
+   "label": "性能",
+   "full_marks": "帧率稳，加载快",
+   "weight": 5,
+   "floor_pct": 70
+  }
+ ],
+ "caps": [
+  {
+   "id": "reason",
+   "text": "用户上次提的理由还没解决",
+   "note": "对应的评分项（不含 share_ready）",
+   "key": "*",
+   "max_pct": 70
+  },
+  {
+   "id": "playtest",
+   "text": "人物试玩卡在核心玩法上",
+   "note": "3 分钟内不知道要做什么",
+   "key": "core_loop",
+   "max_pct": 60
+  }
+ ],
+ "steps": [
+  "评审先冷读：只看用户的原话，以同事身份打开作品，先给 share_ready（愿意拿给同事）打分，再看其他材料",
+  "做到 15–20% 时把预览发给用户看方向（不问分数，默认继续）",
+  "用户的分数低于及格线时，评审通过也不上线：继续干活，发预览只问能不能上线"
+ ],
+ "source": "marathon default profile",
+ "saved": "2026-11-05T02:30:00.000Z"
+}

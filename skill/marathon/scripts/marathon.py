@@ -11,7 +11,9 @@ import argparse
 import csv
 import datetime as dt
 import glob
+import functools
 import html
+import importlib.util
 import hashlib
 import unicodedata
 import io
@@ -35,12 +37,50 @@ SKILL = Path(__file__).resolve().parent.parent
 HOME = Path(os.environ.get("MARATHON_CLAUDE_HOME") or Path.home() / ".claude")  # override for tests
 REGISTRY = HOME / "marathon" / "active"
 STATUSES = ("intake", "running", "paused", "blocked", "done")
-SETTABLE = {"ledger_through", "phase", "progress", "targets_met", "next", "changed", "link", "mode", "budget_hours", "gate_round", "last_score",
+SETTABLE = {"plateau_round", "auto_resume", "ledger_through", "phase", "progress", "targets_met", "next", "changed", "link", "mode", "budget_hours", "gate_round", "last_score",
             "metrics", "resources", "workers", "worker_fallback", "profile", "lead_style", "rotate_at", "gate", "astra_wait",
-            "summary_words", "astra_pending", "ask_wait", "codex_backends"}
+            "summary_words", "astra_pending", "ask_wait", "codex_backends", "direction", "plateau_review"}
 DEFAULT_PASS_TOTAL, DEFAULT_FLOOR, PLATEAU_GAIN, PLATEAU_ROUNDS = 85.0, 8.0, 3.0, 3
+SCORING_DIR = Path(__file__).resolve().parent.parent / "templates" / "scoring"  # user-chosen profiles per Format
+
+
+def scoring_profile(fmt: str | None) -> dict | None:
+    """The user's scoring profile for a CHARTER `Format:` (talk, report, tool, film, game), or None when there is none."""
+    p = SCORING_DIR / f"{fmt}.json" if fmt and re.fullmatch(r"[a-z]+", fmt) else None
+    return json.loads(p.read_text(encoding="utf-8")) if p and p.exists() else None
+
+
+def profile_rubric(p: dict) -> str:
+    keys = p["keys"]
+    lines = ["RUBRIC: " + ", ".join(f"{k['id']}={k['weight']:g}" for k in keys)]
+    floors = [k for k in keys if k["floor_pct"] / 10 != DEFAULT_FLOOR]
+    if floors:
+        lines.append("FLOOR: " + ", ".join(f"{k['id']}={k['floor_pct'] / 10:g}" for k in floors))
+    if p["pass_total"] != DEFAULT_PASS_TOTAL:
+        lines.append(f"PASS_TOTAL: {p['pass_total']:g}")
+    return "\n".join(lines)
+
+
+def profile_card(p: dict) -> str:
+    """The scoring card every worker brief carries, so builders know how they will be scored."""
+    label = {k["id"]: k["label"] for k in p["keys"]}
+    top = sorted(p["keys"], key=lambda k: -k["weight"])[:3]
+    out = [f"## Scoring card (copy into every worker brief; from templates/scoring/{p['format']}.json)",
+           f"你的作品会这样被打分：及格 {p['pass_total']:g} 分；任何一项低于它满分的规定比例都不能通过。", "最看重："]
+    out += [f"{i}. {k['label']}（{k['weight']:g} 分，底线 {k['floor_pct']}%）：{k['full_marks']}" for i, k in enumerate(top, 1)]
+    if p["caps"]:
+        out.append("会被扣分（该项最多拿到的比例；同一项只按最低的一条封顶，不累加；“愿意拿给…”不受封顶）：")
+        for c in p["caps"]:
+            cap = "ai_tells.py 建议的分" if c["max_pct"] == "ai_tells" else f"{c['max_pct']}%"
+            out.append(f"- {c['text']} → {label.get(c['key'], '对应项')} 最多 {cap}：{c['note']}")
+    out.append("评审流程：")
+    out += [f"- {s}" for s in p["steps"]]
+    return "\n".join(out) + "\n"
+
+
 GITIGNORE = [".tmp/", "research/raw/", "node_modules/", "__pycache__/", "*.bam", "*.bai", "*.cram", "*.crai", "*.fastq.gz", "*.fq.gz", "*.vcf.gz"]
-CSV_FIELDS = ["round", "date", "reviewers", "artifact", "total", "critical", "major", "result", "dims", "hours", "rubric", "carried"]
+CSV_FIELDS = ["round", "date", "reviewers", "artifact", "total", "critical", "major", "result", "dims", "hours", "rubric", "carried", "use"]
+DIRECTION_AT = 0.15  # share of the budget after which the lead shows the user a preview and asks about direction (gate.md)
 FORECAST_FIELDS = ["date", "after_round", "hours", "next", "end", "chance"]
 OVERVIEW_GLOBS = [str(root / "*" / "STATE.md") for root in ([Path(os.environ["MARATHON_REPOS_ROOT"])] if os.environ.get("MARATHON_REPOS_ROOT") else [Path.home() / "repos", Path.cwd().parent])]
 # Worker models the user can name (decided 2026-10-19): Codex models run high unless an effort is given ("astra-xhigh");
@@ -62,10 +102,10 @@ PROFILES = {
                 "keys": {"profile": "classic", "lead_style": "hands-on", "rotate_at": "0", "workers": "opus", "worker_fallback": "sonnet",
                          "gate": "opus", "astra_wait": "0", "summary_words": "300"}},
     "claude": {"name": "All Claude", "about": "Claude only: thin rotating Opus lead, Sonnet workers, Opus gate. Workers stay on Claude quota (~89% of a run's Claude tokens)",
-               "keys": {"profile": "claude", "lead_style": "thin", "rotate_at": "150", "workers": "sonnet", "worker_fallback": "opus",
+               "keys": {"profile": "claude", "lead_style": "thin", "rotate_at": "300", "workers": "sonnet", "worker_fallback": "opus",
                         "gate": "opus", "astra_wait": "0", "summary_words": "300"}},
     "codex": {"name": "Codex workers", "about": "default: thin rotating lead (Claude or Codex host), GPT-6.1-Sol high workers (Astra optional), Opus + Astra gate",
-              "keys": {"profile": "codex", "lead_style": "thin", "rotate_at": "150", "workers": "sol61", "worker_fallback": "astra,sonnet",
+              "keys": {"profile": "codex", "lead_style": "thin", "rotate_at": "300", "workers": "sol61", "worker_fallback": "astra,sonnet",
                        "gate": "opus+astra", "astra_wait": "10", "summary_words": "300"}},
 }
 DEFAULT_PROFILE = "codex"
@@ -123,6 +163,7 @@ def run_config(fm: dict, short: bool = False) -> list[str]:
     lead = f"verified {fm['lead_verified']}" if fm.get("lead_verified") else f"requested {lead}"
     thin = run_value(fm, "lead_style") != "hands-on"
     rot = int(run_value(fm, "rotate_at") or 0)
+    rot = 300 if rot == 150 else rot  # the old default counts as 300k (stop_hook.py)
     gate = run_value(fm, "gate") or "opus+astra"
     wait = int(run_value(fm, "astra_wait") or 0)
     gate_txt = {"opus+astra": "Opus 5.5 xhigh + Astra high", "opus": "Opus 5.5 xhigh (final adds Astra)",
@@ -248,6 +289,15 @@ def read_state(d: Path) -> tuple[dict, str]:
     if not p.exists():
         raise SystemExit(f"{p} not found (run init first)")
     fm, body = parse_front(p.read_text(encoding="utf-8-sig"))
+    hook = _hook_module()
+    last = hook.last_activity(d)
+    if last:
+        fm["active_at"] = dt.datetime.fromtimestamp(last).isoformat(timespec="minutes")
+    if fm.get("status") == "running" and fm.get("running_since"):
+        try:
+            fm["idle_hours"] = f"{hook.idle_hours_since(d, dt.datetime.fromisoformat(fm['running_since']).timestamp()):.2f}"
+        except ValueError:
+            pass
     if fm.get("profile") == "codex-lead":
         fm["profile"] = "codex"
         print("profile codex-lead is now codex (same worker and gate settings)", file=sys.stderr)
@@ -255,13 +305,15 @@ def read_state(d: Path) -> tuple[dict, str]:
 
 
 def write_state(d: Path, fm: dict, body: str) -> None:
+    if (d / "STATE.md").exists():
+        touch_activity(d)  # reads waiting_on as stored, before this write changes it
     if "profile" not in fm:
         for k, v in PROFILES[LEGACY_PROFILE]["keys"].items():
             fm.setdefault(k, v)
         notice = "legacy run pinned to classic (no behaviour change)"
         body = add_to_section(body, "Decisions", f"{iso()} · {notice}")
         print(notice)
-    state_transaction(d, "---\n" + "\n".join(f"{k}: {v}" for k, v in fm.items()) + "\n---\n" + body)
+    state_transaction(d, "---\n" + "\n".join(f"{k}: {v}" for k, v in fm.items() if k not in DERIVED) + "\n---\n" + body)
 
 
 def section_parts(body: str, title: str) -> tuple[str, str, str]:
@@ -296,14 +348,40 @@ def hours(x) -> float:
         return 0.0
 
 
+IDLE_MIN, WAIT_IDLE_MIN = 30, 90  # budget clock: gaps without activity longer than this are not work (user, 2026-11-05)
+DERIVED = ("active_at", "idle_hours")  # computed by read_state from .tmp/activity and .tmp/idle-gaps, never stored
+
+
+def _naive(t: dt.datetime | None) -> dt.datetime | None:
+    return t.astimezone().replace(tzinfo=None) if t is not None and t.tzinfo else t
+
+
 def work_hours(fm: dict) -> float:
+    """Banked hours plus the open running segment, minus recorded idle gaps (idle_hours), and ending IDLE_MIN (WAIT_IDLE_MIN
+    while waiting_on is set) after the last activity when nothing has happened since."""
     w = hours(fm.get("work_hours"))
     if fm.get("status") == "running" and fm.get("running_since"):
         try:
-            w += (now() - dt.datetime.fromisoformat(fm["running_since"])).total_seconds() / 3600
+            start, end = _naive(dt.datetime.fromisoformat(fm["running_since"])), _naive(now())
+            act = _naive(parse_time(fm.get("active_at") or ""))
+            if act and act >= start:
+                end = min(end, act + dt.timedelta(minutes=WAIT_IDLE_MIN if fm.get("waiting_on") else IDLE_MIN))
+            w += max(0.0, (end - start).total_seconds() / 3600 - hours(fm.get("idle_hours")))
         except ValueError:
             pass
     return w
+
+
+def touch_activity(d: Path, waiting: bool | None = None) -> None:
+    """Mark the project active (workers, their heartbeat, STATE writes; the stop hook does the same). A long gap since the
+    last activity is recorded in .tmp/idle-gaps first, so it never counts as work. waiting=None reads waiting_on from disk."""
+    try:
+        if waiting is None:
+            st = d / "STATE.md"
+            waiting = bool(parse_front(st.read_text(encoding="utf-8-sig"))[0].get("waiting_on")) if st.exists() else False
+        _hook_module().record_activity(d, waiting)
+    except OSError:
+        pass
 
 
 # ---------- session registry (read by stop_hook.py) ----------
@@ -356,7 +434,109 @@ def claim(d: Path, new_run: bool) -> str:
         write_state(d, fm, body)
     except SystemExit:
         pass
-    return ("handoff complete; " if complete else "") + f"auto-continue armed for session {p.stem[:8]} (run {info['run']}, {info['blocks']} continues so far); {set_hook(True)}"
+    return ("handoff complete; " if complete else "") + f"auto-continue armed for session {p.stem[:8]} (run {info['run']}, {info['blocks']} continues so far); {set_hook(True)}" + quota_watch_line(p.stem, d)
+
+
+QUOTA_DIR = Path.home() / ".claude" / "quota-watch"
+RESUME_LATE_MIN = 15   # a resume this long after the reset is flagged; the watcher wakes at +3 min
+_RESUME_CACHE: dict = {}
+
+
+def qw_module():
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import quota_watch
+    return quota_watch
+
+
+def auto_resume_off(fm: dict) -> bool:
+    return fm.get("auto_resume", "on").strip().lower() in ("off", "no", "false", "0")
+
+
+def armed(sid: str | None) -> int:
+    qw = qw_module()
+    return sum(qw.live(QUOTA_DIR / sid / f"slot-{i}", 60) for i in range(1, qw.SLOTS + 1)) if sid else 0
+
+
+def usage_limit_stops(fm: dict) -> list[dict]:
+    """Every usage-limit stop of this project's lead sessions, oldest first (quota_watch.events plus session). A stop
+    still open in the session running this command is resumed now; one followed by a later lead session moved on."""
+    qw, out, paths = qw_module(), [], {}
+    current = os.environ.get("CLAUDE_CODE_SESSION_ID")
+    for sid in lead_sessions(fm, include_current=False):
+        paths[sid] = qw.find_transcript(sid)
+        out += [dict(e, session=sid, moved=False) for e in qw.events(paths[sid], QUOTA_DIR / sid / "claimed")]
+    for e in out:
+        if e["resumed"] is None and not e["again"]:
+            if e["session"] == current:
+                e["resumed"] = time.time()
+            else:
+                e["moved"] = any(p and s != e["session"] and os.path.getmtime(p) > e["stopped"] + 60 for s, p in paths.items())
+    return sorted(out, key=lambda e: e["stopped"])
+
+
+def hm(t: float) -> str:
+    return dt.datetime.fromtimestamp(t).strftime("%m-%d %H:%M")
+
+
+def resume_status(fm: dict) -> tuple[str, list[str]]:
+    """(Resume line for the visual block, flags): watchers armed and how the last usage-limit stop ended."""
+    sids = lead_sessions(fm, include_current=False)
+    current = os.environ.get("CLAUDE_CODE_SESSION_ID")
+    sid = current if current in sids else (sids[-1] if sids else None)
+    key = tuple(sids)
+    if key not in _RESUME_CACHE:   # the report asks twice (visual line, flags); each reads whole transcripts
+        _RESUME_CACHE[key] = [e for e in usage_limit_stops(fm) if not e["again"]]
+    stops = _RESUME_CACHE[key]
+    line = ("Resume    off" if auto_resume_off(fm) else f"Resume    {armed(sid)}/{qw_module().SLOTS} armed") + \
+        f" · {len(stops)} limit{'' if len(stops) == 1 else 's'} hit"
+    flags = []
+    if stops:
+        e = stops[-1]
+        if e["resumed"]:
+            line += f" · last reset {hm(e['reset'])} → resumed +{max(0, e['resumed'] - e['reset']) / 60:.0f} min ({e['by']})"
+        elif e["moved"]:
+            line += f" · last reset {hm(e['reset'])} → a later lead session took over"
+        elif time.time() < e["reset"] + RESUME_LATE_MIN * 60:
+            line += f" · stopped, reset at {hm(e['reset'])}"
+        else:
+            line += " · stopped, not resumed"
+            flags.append(f"stopped on a usage limit at {hm(e['stopped'])}; the reset at {hm(e['reset'])} passed "
+                         f"{(time.time() - e['reset']) / 60:.0f} min ago and nothing resumed it (watchers or an outside resume tool)")
+    late = [e for e in stops if e["resumed"] and e["resumed"] - e["reset"] > RESUME_LATE_MIN * 60]
+    if late:
+        e = late[-1]
+        flags.append(f"usage-limit resume late: reset {hm(e['reset'])} → resumed {hm(e['resumed'])} "
+                     f"(+{(e['resumed'] - e['reset']) / 60:.0f} min, {e['by']}); {len(late)}/{len(stops)} late")
+    return line, flags
+
+
+def quota_watch_line(sid: str, d: Path) -> str:
+    """Usage-limit wake (quota_watch.py): logs each usage-limit stop that has since resumed to STATE Log once, then
+    says how many watchers this session has and gives the command for the missing ones.
+    STATE auto_resume: off (asked at intake, default on) turns it off; watchers already running stay until they end."""
+    fm, body = read_state(d)
+    logged = []
+    for e in usage_limit_stops(fm):
+        mark = QUOTA_DIR / e["session"] / "logged" / str(e["error"])
+        if (e["resumed"] or e["moved"]) and not e["again"] and not mark.exists():
+            how = (f"resumed {hm(e['resumed'])} (+{max(0, e['resumed'] - e['reset']) / 60:.0f} min, {e['by']})"
+                   if e["resumed"] else "a later lead session took over")
+            body = add_to_section(body, "Log", f"{iso()} · usage limit stopped session {e['session'][:8]} at "
+                                               f"{hm(e['stopped'])}, reset {hm(e['reset'])}, {how}")
+            mark.mkdir(parents=True, exist_ok=True)
+            logged.append(how)
+    if logged:
+        write_state(d, fm, body)
+    note = f"\nusage-limit stops logged to STATE Log: {'; '.join(logged)}" if logged else ""
+    if auto_resume_off(fm):
+        return note + "\nquota watch: off (auto_resume: off)"
+    qw = qw_module()
+    script = Path(qw.__file__).resolve().as_posix()
+    n = armed(sid)
+    if n >= qw.SLOTS:
+        return note + f"\nquota watch: {n}/{qw.SLOTS} armed"
+    return note + (f"\nquota watch: {n}/{qw.SLOTS} armed - start {qw.SLOTS - n} now, each as its own Bash call with "
+                   f'run_in_background (no tokens while waiting; wakes this session after a usage-limit reset): python "{script}"')
 
 
 def registered_projects():
@@ -413,9 +593,14 @@ def cmd_init(a) -> None:
             state_transaction(d, t)
         else:
             atomic_write(d / name, t)
+    profile = scoring_profile(a.format) if getattr(a, "format", None) else None
     rubric = (SKILL / "templates" / f"rubric-{a.type}.txt").read_text(encoding="utf-8").strip()
-    ch = (d / "CHARTER.md").read_text(encoding="utf-8").replace("{rubric}", rubric)
-    atomic_write(d / "CHARTER.md", ch)
+    ch = (d / "CHARTER.md").read_text(encoding="utf-8")
+    if profile:  # the user's scoring profile for this kind of deliverable (references/review-principles.md)
+        rubric = profile_rubric(profile)
+        ch = re.sub(r"(?m)^Format: <[^\n]*$", f"Format: {profile['format']}", ch)
+        ch = ch.replace("\n## User calibration", "\n" + profile_card(profile) + "\n## User calibration", 1)
+    atomic_write(d / "CHARTER.md", ch.replace("{rubric}", rubric))
     for sub in ("research/raw", "research/notes", "research/benchmark", "audits", ".tmp"):
         (d / sub).mkdir(parents=True, exist_ok=True)
     gi = d / ".gitignore"
@@ -429,7 +614,14 @@ def cmd_init(a) -> None:
     print(f"created {d} (status intake; the hook stays idle until set-status running)")
 
 
+WAIT_FOR_USER = re.compile(r"user[ _-]?check|user[ _-]?score|(?:wait(?:ing)?|await(?:ing)?) (?:for |on )?(?:the )?user'?s? "
+                           r"(?:score|rating|confirmation|check|approval)|等(?:用户|你)(?:打分|确认|评分)|用户(?:打分|确认|评分)", re.I)
+
+
 def cmd_set_status(a) -> None:
+    if a.status == "paused" and WAIT_FOR_USER.search(a.reason or ""):
+        raise SystemExit("not paused: waiting for the user's score or confirmation never stops the run. Keep working; only "
+                         "going live waits for the user (gate.md). Send the preview with marathon.py ask (default: keep going).")
     d = Path(a.dir).resolve()
     fm, body = read_state(d)
     old = fm.get("status")
@@ -464,6 +656,8 @@ def cmd_claim(a) -> None:
 def cmd_wait(a) -> None:
     if getattr(a, "gate", False):
         return cmd_gate_wait(a)
+    if getattr(a, "for_ids", None):
+        return wait_for_workers(a)
     d = Path(a.dir).resolve()
     fm, body = read_state(d)
     if a.clear:
@@ -474,6 +668,52 @@ def cmd_wait(a) -> None:
         fm["waiting_on"], fm["waiting_since"] = a.what.replace("\n", " "), iso()
     write_state(d, fm, body)
     print("waiting cleared" if a.clear else f"waiting on {fm['waiting_on']} (the hook lets turns end for up to 90 min)")
+
+
+def wait_for_workers(a) -> None:
+    """Block until the named workers reach a final status or the deadline passes, then print each one's state. Run it in the
+    background; its exit wakes the lead. It waits on worker status, never on a report file, so a worker that ends without a
+    report cannot hang the wait, and at the deadline it only reports: the lead decides whether a long task keeps going."""
+    d = Path(a.dir).resolve()
+    ids = [x for x in re.split(r"[,\s]+", a.for_ids) if x]
+    limit = float(a.max)
+    deadline = time.time() + limit * 60
+    poll = float(os.environ.get("MARATHON_WAIT_POLL") or 30)
+    mine = "workers " + ",".join(ids)
+
+    def set_waiting(on: bool) -> None:
+        with file_lock(d / ".tmp" / "state-command.lock", timeout=30, label="state command"):
+            fm, body = read_state(d)
+            if on:
+                fm["waiting_on"], fm["waiting_since"] = mine, iso()
+            elif fm.get("waiting_on") == mine:
+                fm["waiting_on"], fm["waiting_since"] = "", ""
+            else:
+                return
+            write_state(d, fm, body)
+
+    set_waiting(True)
+    try:
+        while True:
+            rows = {r["id"]: r for r in read_workers(d)}
+            # A worker not registered yet (still starting, or held by the load gate) counts as still running.
+            still = [i for i in ids if i not in rows or (rows[i].get("status") not in TERMINAL_WORKER_STATUSES and not rows[i].get("ended"))]
+            if not still or time.time() >= deadline:
+                break
+            time.sleep(min(poll, max(0.0, deadline - time.time())))
+    finally:
+        set_waiting(False)
+    for i in ids:
+        if i not in rows:
+            print(f"{i}: never registered: check its launch")
+            continue
+        r, rep = rows[i], rows[i].get("report") or ""
+        path = (Path(rep) if os.path.isabs(rep) else d / rep) if rep else None
+        empty = i not in still and path is not None and (not path.exists() or path.stat().st_size == 0)
+        print(f"{i}: {r.get('status') or 'running'}" + (" · report missing or empty: count it as failed and resend it once with the same brief" if empty else ""))
+    if still:
+        print(f"still running after {limit:g} min: {', '.join(still)}. Look at each one's latest output, then either wait again "
+              "(a long task that is still producing output is fine) or restart it, and write why in STATE.")
 
 
 def input_text() -> str:
@@ -596,13 +836,46 @@ def cmd_status(a) -> None:
         parts.append(f"mode {fm['mode']}")
     print("> " + " · ".join(parts))
     print("> " + run_config(fm, short=True)[0] + (f" · Astra for {fm['astra_pending']} still out" if fm.get("astra_pending") else ""))
+    rows = [r for r in read_scores(d) if r.get("total")]
+    if rows:
+        last = rows[-1]
+        use = f" · would use as is: {last['use']}" if last.get("use") else ""
+        print(f"> Open problems after gate R{last.get('round', '?')}: critical {last.get('critical') or 0} · major {last.get('major') or 0}{use}")
+    if fm.get("direction"):
+        print(f"> Direction check: {fm['direction']}")
+    elif budget and DIRECTION_AT * budget <= w < 0.5 * budget:
+        print(f"> Direction check: not sent ({w / budget:.0%} of the budget used): send the user a preview now (gate.md)")
+    if (fm.get("plateau_review") or "").startswith("due"):
+        print(f"> Plateau review {fm['plateau_review']}: send 2–3 options with a recommendation (marathon.py ask) and keep going on it")
+    fixed, total, unproven = user_problems(d)
+    if total:
+        print(f"> The user's problems: fixed {fixed} / {total}" + (f" ({unproven} marked fixed without evidence)" if unproven else ""))
+    if rows and rows[-1].get("artifact"):
+        since = _run(["git", "-C", str(d), "rev-list", "--count", f"{rows[-1]['artifact'].removesuffix('-dirty')}..HEAD"])
+        if since and since.returncode == 0 and since.stdout.strip().isdigit():
+            print(f"> Since gate R{rows[-1].get('round', '?')}: {since.stdout.strip()} commits (review again once its critical and major problems are fixed)")
+    numeric = [r for r in rows if r.get("round", "").isdigit() and r.get("hours")]
+    if len(numeric) >= 2 and fm.get("status") == "running":
+        a0, a1 = numeric[-2], numeric[-1]
+        dh, gain = hours(a1["hours"]) - hours(a0["hours"]), float(a1["total"]) - float(a0["total"])
+        target = charter_pass_total(d)
+        if dh > 0 and gain > 0 and target and float(a1["total"]) < target:
+            print(f"> At the last round's pace: ~{(target - float(a1['total'])) / gain * dh:.1f} h to reach {target:g}; "
+                  f"{max(0.0, budget - w):.1f} h of budget left")
+    stuck = stale_workers(d)
+    if stuck:
+        print("> Possibly stuck (no new output for 30+ min): " + ", ".join(stuck) + ". Look at the latest output, then keep waiting or restart it and write why")
     if not getattr(a, "full", False):
         scores = [r["total"] for r in read_scores(d) if r.get("total")][-3:]
         running = running_workers(d)
         print("> Gates: " + (" → ".join(scores) or "none"))
         print(f"> Running workers ({len(running)}): " + (", ".join(running) or "none"))
         print("> Waiting on: " + (fm.get("waiting_on") or "none"))
+        load = pc_load()
+        if load:
+            print("> This PC: " + load)
         print("> Next: " + fm.get("next", "").replace("\n", " "))
+        print("> Now (" + phase_key(fm.get("phase")) + "): " + " · ".join(phase_todo(fm.get("phase"))))
         return
     for key, label in (("link", "Try it"), ("changed", "Changed"), ("metrics", "Measured")):
         if fm.get(key):
@@ -612,6 +885,98 @@ def cmd_status(a) -> None:
         info = registry_info(d)
         state = "not armed in this session (run claim)" if not info else (f"released ({info['released']})" if info.get("released") else f"armed, {info.get('blocks', 0)} continues")
         print(f"<!-- auto-continue: {state}{'; waiting on ' + fm['waiting_on'] if fm.get('waiting_on') else ''} -->")
+
+
+@functools.lru_cache(maxsize=1)
+def _hook_module():
+    spec = importlib.util.spec_from_file_location("marathon_stop_hook", Path(__file__).resolve().parent / "stop_hook.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def phase_key(phase: str | None) -> str:
+    return _hook_module().phase_key(phase)
+
+
+def phase_todo(phase: str | None) -> tuple:
+    """The few things to do in this phase: one table in stop_hook.py, shown by the hook and by status."""
+    hook = _hook_module()
+    return hook.PHASE_TODO[hook.phase_key(phase)]
+
+
+def user_problems(d: Path) -> tuple[int, int, int]:
+    """CHARTER rows `| U<n> | words | how to reproduce | status | evidence |`: (fixed with evidence, total, fixed without evidence)."""
+    p = d / "CHARTER.md"
+    if not p.exists():
+        return 0, 0, 0
+    fixed = total = unproven = 0
+    for _, rest in re.findall(r"^\|\s*(U\d+)\s*\|(.*)\|\s*$", p.read_text(encoding="utf-8-sig"), re.M):
+        cells = [c.strip() for c in rest.split("|")]
+        if not cells or not cells[0]:
+            continue  # the empty template row
+        total += 1
+        done = len(cells) > 2 and re.match(r"\s*(fixed|已修|修好)", cells[2], re.I) and not re.search(r"not|未|没", cells[2], re.I)
+        if done and len(cells) > 3 and cells[3] not in ("", "-", "–"):
+            fixed += 1
+        elif done:
+            unproven += 1
+    return fixed, total, unproven
+
+
+def charter_pass_total(d: Path) -> float | None:
+    try:
+        m_ = re.search(r"^PASS_TOTAL:\s*([\d.]+)", (d / "CHARTER.md").read_text(encoding="utf-8-sig"), re.M)
+    except OSError:
+        return None
+    return float(m_.group(1)) if m_ else DEFAULT_PASS_TOTAL
+
+
+def pc_load() -> str:
+    """CPU and RAM now, from gpu.py's cached reading (gpu.md limits); empty when unavailable."""
+    try:
+        spec = importlib.util.spec_from_file_location("marathon_gpu", Path(__file__).resolve().parent / "gpu.py")
+        g = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(g)
+        r = g.load_json(g.READING, {})
+        if not 0 <= time.time() - r.get("at", 0) < 300:  # no recent cached reading: CPU and RAM only (fast)
+            r = dict(zip(("cpu", "ram"), g.cpu_ram())) | {"idle_min": g.input_idle_min()}
+        lim = g.LIMITS[g.tier_of(g.activity_mode(r.get("idle_min")), r.get("others_gpu"))]
+    except Exception:
+        return ""
+    parts = [f"{label} {r[k]:.0f}% (limit {lim[k]}%)" for k, label in (("cpu", "CPU"), ("ram", "RAM")) if r.get(k) is not None]
+    return " · ".join(parts)
+
+
+def stale_workers(d: Path, minutes: float = 30) -> list[str]:
+    """Running workers with no new output (their report or .tmp/<id>/) for `minutes`."""
+    out, t_now = [], time.time()
+    for r in read_workers(d):
+        if not r.get("started") or r.get("ended") or r.get("status") in TERMINAL_WORKER_STATUSES:
+            continue
+        started = parse_time(r["started"])
+        if not started:
+            continue
+        seen = [started.timestamp()]
+        rep = r.get("report") or ""
+        if rep:
+            rp = Path(rep) if os.path.isabs(rep) else d / rep
+            if rp.exists():
+                seen.append(rp.stat().st_mtime)
+        reports = d / ".tmp" / "reports"
+        if reports.is_dir():
+            seen += [f.stat().st_mtime for f in reports.glob(glob.escape(r["id"]) + ".*") if f.is_file()]
+        scratch = d / ".tmp" / r["id"]
+        if scratch.is_dir():
+            for i, f in enumerate(scratch.rglob("*")):
+                if i > 500:
+                    break
+                if f.is_file():
+                    seen.append(f.stat().st_mtime)
+        idle = (t_now - max(seen)) / 60
+        if idle >= minutes:
+            out.append(f"{r['id']} ({idle:.0f} min)")
+    return out
 
 
 # ---------- progress report (fact sheet for the progress skill) ----------
@@ -792,6 +1157,7 @@ def visual_block(d: Path, fm: dict, rows: list[dict]) -> list[str]:
         out += review_table(d, num[-1])[0]
     if fm.get("targets_met"):
         out.append(f"Targets   {fm['targets_met']}")
+    out.append(resume_status(fm)[0])
     return out
 
 
@@ -1003,6 +1369,9 @@ def cmd_report(a) -> None:
     since = parse_time(a.since or fm.get("reported_at") or fm.get("started", "")) or now() - dt.timedelta(hours=24)
     label = "given" if a.since else ("last report" if fm.get("reported_at") else "project start")
     print(f"REPORT {d.name} · now {iso()} · since {iso(since)} ({label}, {ago(since)} ago)")
+    left = hours(fm.get("budget_hours")) - work_hours(fm)
+    print("RUN (open the report with this line): mode " + fm.get("mode", "balanced") + " · " + run_config(fm, short=True)[0].removeprefix("⚙ ")
+          + (f" · {max(0.0, left):.1f} h of budget left" if hours(fm.get("budget_hours")) else ""))
     goal = charter_goal(d)
     if goal:
         print(f"goal: {goal}")
@@ -1132,6 +1501,7 @@ def cmd_report(a) -> None:
         print(f"user messages since: {len(new)}" + (f" (#{new[0][0]}–#{new[-1][0]})" if new else ""))
         for n, t in new[-6:]:
             print(f"  #{n} {t[:110]}{'…' if len(t) > 110 else ''}")
+    flags += resume_status(fm)[1]
     print("FLAGS" + ("" if flags else ": none"))
     print_lines(flags, "⚠ ")
     print("(background agents and tasks are not visible to this script: add the ones you are running)")
@@ -1389,8 +1759,24 @@ def charter_rules(d: Path) -> dict:
     t = re.search(r"^PASS_TOTAL:\s*([\d.]+)", text, re.M)
     rows = re.findall(r"^\|\s*(G\d+)\s*\|(.*)\|\s*$", text, re.M)
     met = sum(1 for _, rest in rows if "✅" in rest.split("|")[-1])
-    return {"weights": weights, "floors": floors, "na": allowed_na, "pass_total": float(t.group(1)) if t else DEFAULT_PASS_TOTAL,
-            "targets": (met, len(rows))}
+    rules = {"weights": weights, "floors": floors, "na": allowed_na, "pass_total": float(t.group(1)) if t else DEFAULT_PASS_TOTAL,
+             "targets": (met, len(rows))}
+    fmt = re.search(r"^Format:\s*([a-z]+)", text, re.M)  # the template's "<talk | …>" placeholder is not a format
+    if fmt:
+        rules["format"] = fmt.group(1)
+    # The user's own ratings (references/review-principles.md): "USER_SCORE: 62.5 sha=…" (a range 60-65 counts as
+    # its midpoint) or "USER_GO: sha=…" (explicit approval). The last valid line is the current one.
+    users, bad = [], []
+    for line in re.findall(r"^[-*]?\s*(USER_(?:SCORE|GO):[^\n]*)", text, re.M):
+        sha = re.search(r"\bsha=([0-9a-fA-F]{7,40})\b", line)
+        score = re.match(r"USER_SCORE:\s*(\d+(?:\.\d+)?)(?:\s*[-–~]\s*(\d+(?:\.\d+)?))?", line)
+        if sha and line.startswith("USER_GO:"):
+            users.append({"score": None, "sha": sha.group(1)})
+        elif sha and score:
+            users.append({"score": (float(score.group(1)) + float(score.group(2) or score.group(1))) / 2, "sha": sha.group(1)})
+        else:
+            bad.append(line.strip())
+    return rules | ({"user": users} if users else {}) | ({"user_bad": bad} if bad else {})
 
 
 def report_keys(path: Path) -> set:
@@ -1402,7 +1788,7 @@ def report_keys(path: Path) -> set:
 
 
 def parse_report(path: Path, keys: set, allowed_na: set) -> dict:
-    r = {"dims": {}, "critical": None, "major": None, "artifact": None, "reviewer": None, "problems": []}
+    r = {"dims": {}, "critical": None, "major": None, "artifact": None, "reviewer": None, "use": None, "problems": []}
     for line in path.read_text(encoding="utf-8-sig").splitlines():
         s = line.strip().strip("`*> ")
         u = s.upper()
@@ -1416,6 +1802,9 @@ def parse_report(path: Path, keys: set, allowed_na: set) -> dict:
             r["artifact"] = s.split(":", 1)[1].strip()
         elif u.startswith("REVIEWER:"):
             r["reviewer"] = s.split(":", 1)[1].strip().lower()
+        elif u.startswith("USE:"):
+            v = s.split(":", 1)[1].strip().lower()
+            r["use"] = "yes" if v.startswith("yes") else "no" if v.startswith("no") else None
     dims, p, name = r["dims"], r["problems"], path.name
     if keys - dims.keys():
         p.append(f"{name}: missing dimensions {sorted(keys - dims.keys())}")
@@ -1669,16 +2058,42 @@ def cmd_score(a) -> None:
         score_invalid("supply --from reports or --final --reuse-round N")
     d = Path(a.dir).resolve()
     rules = charter_rules(d)
-    rubric = json.dumps(rules | {"na": sorted(rules["na"])}, sort_keys=True)
+    # The user's scores stay out of the snapshot: a new USER_SCORE must not block --reuse-round (score re-applies it).
+    rubric = json.dumps({k: v for k, v in rules.items() if not k.startswith("user")} | {"na": sorted(rules["na"])}, sort_keys=True)
     weights, floors = rules["weights"], rules["floors"]
     fm, body = read_state(d)
     merged, crit, major, problems, reviewers, prev, reports, carried = {}, 0, 0, [], [], None, [], {}
+    # CHARTER "Format: talk|report|tool|film|game" binds the user's profile; no or unknown Format = generic rubric.
+    profile = scoring_profile(rules.get("format"))
+    if profile:
+        want = {k["id"]: (float(k["weight"]), k["floor_pct"] / 10) for k in profile["keys"]}
+        off = [k for k, (w, f) in want.items() if weights.get(k) != w or floors.get(k, DEFAULT_FLOOR) < f]
+        if off or set(weights) - want.keys():
+            problems.append(f"Format: {rules['format']}: RUBRIC/FLOOR must match templates/scoring/{rules['format']}.json "
+                            f"(differs: {', '.join(off + sorted(set(weights) - want.keys()))}); only the user changes it, "
+                            "on the review-standards page")
     rows = read_csv(d / "audits" / "scores.csv")
     m = re.search(r"round-(\d+)", str(a.src[0]) if a.src else "")
     rnd = "final" if a.final else str(a.round or (m.group(1) if m else ""))
     if not a.final and not rnd.isdigit():
         score_invalid("round number missing: use audits/round-N/ or --round N")
     before, partial = partial_score(a, fm, rows, rnd)
+    core = json.dumps({"weights": weights, "floors": floors, "pass_total": rules["pass_total"], "na": sorted(rules["na"])}, sort_keys=True)
+
+    def core_of(row):
+        try:
+            r = json.loads(row.get("rubric") or "")
+        except ValueError:
+            return None
+        return json.dumps({k: r.get(k) for k in ("weights", "floors", "pass_total", "na")}, sort_keys=True) if r else None
+
+    cores = [c for c in (core_of(r) for r in rows if r["round"].isdigit() and r["round"] != rnd) if c]
+    if a.reuse_round is None and cores and cores[-1] != core:
+        changes = sum(1 for x, y in zip(cores, cores[1:]) if x != y) + 1
+        declared = len(re.findall(r"^RUBRIC_CHANGE:", (d / "CHARTER.md").read_text(encoding="utf-8-sig"), re.M))
+        if changes > declared:
+            problems.append("the scoring rules (keys, weights, floors, NA or pass total) changed since the last scored round: add a "
+                            "line 'RUBRIC_CHANGE: <date> <why>' to CHARTER and tell the user in the next progress report")
     actual = current_artifact(d) if not a.late else None
     artifact = before["artifact"] if before else a.artifact or actual
     candidate = resolve_artifact(d, artifact.removesuffix("-dirty"))
@@ -1704,7 +2119,7 @@ def cmd_score(a) -> None:
                 problems.append("--carry-forward needs an earlier scored round")
             elif set(weights) - prev.keys():
                 problems.append("--carry-forward cannot supply new rubric keys; obtain full reviews")
-        elif not prior or prior["result"] != "TARGET MET":
+        elif not prior or prior["result"] not in ("TARGET MET", "USER CHECK"):
             problems.append("--reuse-round needs a passing regular round")
         elif json.loads(prior.get("carried") or "{}"):
             problems.append("--reuse-round needs full reviews; this round has carried scores")
@@ -1728,6 +2143,8 @@ def cmd_score(a) -> None:
         reports.append(r)
         omitted = set(weights) - r["dims"].keys()
         if prev and omitted:
+            if profile and "share_ready" in omitted:
+                problems.append(f"{rp.name}: Format: {rules['format']} needs share_ready re-scored every round (Pass A)")
             if (r["reviewer"] or "").startswith("astra"):
                 problems.append(f"{rp.name}: Astra must score every key every round")
             if (r["reviewer"] or "").startswith("sonnet" if run_value(fm, "gate") == "sonnet+astra" else "opus") and int(rnd) % 3 == 0:
@@ -1771,29 +2188,45 @@ def cmd_score(a) -> None:
     low = [f"{k}={v:g}<{floors[k]:g}" for k, v in scored.items() if v < floors[k]]
     met, n_targets = rules["targets"]
     targets_ok = n_targets > 0 and met == n_targets
-    passed = total >= rules["pass_total"] and not low and crit == 0 and targets_ok
+    if a.reuse_round is not None:
+        uses = (prior or {}).get("use", "").split("+") if (prior or {}).get("use") else []
+    else:
+        uses = [r["use"] or "missing" for r in reports]
+    would_use = bool(uses) and all(u == "yes" for u in uses)
+    passed = total >= rules["pass_total"] and not low and crit == 0 and major == 0 and would_use and targets_ok
+    user_note, user_hold = user_calibration(d, rules, rows, candidate, total)
+    if user_hold == "same":
+        passed = False
     fm["targets_met"] = f"{met}/{n_targets}"
     rows = [r for r in rows if r is not before]
-    history = {int(r["round"]): float(r["total"]) for r in rows if r["round"].isdigit()}
+    history = {int(r["round"]): float(r["total"]) for r in rows if r["round"].isdigit() and core_of(r) in (None, core)}
+    earlier = [r for r in rows if r["round"].isdigit() and not a.final and int(r["round"]) < int(rnd)]
     if not a.final:
         history[int(rnd)] = total
     totals = [history[k] for k in sorted(history) if a.final or k <= int(rnd)]
     over_budget = work_hours(fm) >= hours(fm.get("budget_hours")) > 0
     result = "BUDGET" if over_budget else "FINAL FAIL" if a.final else "CONTINUE"
     if passed:
-        result = "FINAL PASS" if a.final else "TARGET MET"
+        result = "USER CHECK" if user_hold == "earlier" else "FINAL PASS" if a.final else "TARGET MET"
     elif not a.final and len(totals) > PLATEAU_ROUNDS and totals[-1] - totals[-1 - PLATEAU_ROUNDS] < PLATEAU_GAIN:
         result = "PLATEAU"
+        last_due = int(fm.get("plateau_round") or 0)
+        if not (fm.get("plateau_review") or "").startswith("due") and int(rnd) - last_due >= PLATEAU_ROUNDS:
+            fm["plateau_review"], fm["plateau_round"] = f"due after round {rnd}", rnd
+            if not fm.get("next", "").startswith("Plateau review first"):
+                fm["next"] = ("Plateau review first: 2–3 options (hours, expected gain) with a recommendation, sent with marathon.py ask "
+                              "(default: the recommendation); keep working on it and set plateau_review=sent. Then: " + fm.get("next", ""))
     who = "+".join(reviewers) + missing + adjudicated + partial
     if a.reuse_round is not None:
         who += f"+reuse-round:{a.reuse_round}"
     rows.append({"round": rnd, "date": iso(), "reviewers": who, "artifact": artifact, "total": f"{total:.1f}",
                  "critical": crit, "major": major, "result": result, "dims": json.dumps(merged, ensure_ascii=False),
                  "hours": f"{work_hours(fm):.2f}", "rubric": rubric,
-                 "carried": json.dumps({"round": prior["round"], "reviewers": carried} if carried else {})})
+                 "carried": json.dumps({"round": prior["round"], "reviewers": carried} if carried else {}),
+                 "use": "+".join(uses)})
     rows.sort(key=lambda r: (r["round"] == "final", int(r["round"]) if r["round"].isdigit() else 0))
     write_csv(d / "audits" / "scores.csv", rows, CSV_FIELDS)
-    if not a.final and int(rnd) >= max(history, default=0):
+    if not a.final and int(rnd) >= max((int(r["round"]) for r in rows if r["round"].isdigit()), default=0):
         fm["gate_round"], fm["last_score"] = rnd, f"{total:.0f}/100"
     if before:
         print(f"LATE MERGE round {rnd}: was {float(before['total']):.1f} {before['result']} (critical {before['critical']}), "
@@ -1807,11 +2240,73 @@ def cmd_score(a) -> None:
     write_state(d, fm, body)
     trend = " → ".join(f"{t:.0f}" for t in totals[-5:])
     print(f"round {rnd}: total {total:.1f} (pass {rules['pass_total']:g}; trend {trend}); below floor: {', '.join(low) or 'none'}; "
-          f"critical {crit}; targets {met}/{n_targets}{'' if targets_ok else ' (not all met)'}")
+          f"critical {crit}; major {major}; would use as is: {'+'.join(uses) or 'none'}; "
+          f"targets {met}/{n_targets}{'' if targets_ok else ' (not all met)'}")
+    if earlier:
+        last = max(earlier, key=lambda r: int(r["round"]))
+        old = json.loads(last.get("dims") or "{}")
+        moves = sorted(((k, v - old[k]) for k, v in merged.items() if v is not None and old.get(k) is not None and v != old[k]), key=lambda x: x[1])
+        print(f"since round {last['round']}: total {total - float(last['total']):+.1f}"
+              + (" (" + ", ".join(f"{k} {dv:+g}" for k, dv in moves) + ")" if moves else "")
+              + "; say why in the next report: what was fixed, what is newly found")
+    if result == "PLATEAU":
+        print("plateau review due: write 2–3 options with a recommendation, send them with marathon.py ask and keep going on the "
+              "recommendation (gate.md); STATE next is set")
+    for r in reports:
+        if r["use"] is None:
+            print(f"USE line missing in {r['reviewer'] or 'a report'}: done needs both reviewers' 'USE: yes'. Ask that reviewer "
+                  "for the line (gate-prompt.md) and score again.")
+        elif r["use"] == "no" and not (r["critical"] or r["major"]):
+            print(f"{r['reviewer'] or 'a reviewer'} would not use it as is but lists no critical or major problem: ask which "
+                  "problems stop it and add them to the problem list.")
+    if not passed and total >= rules["pass_total"] and not low and (major or not would_use):
+        print("not done: the score is only the floor. Done means no critical or major problem left and both reviewers "
+              "ending with USE: yes (gate.md, Pass and final). Fix the problem list from the top.")
+    if rnd == "1" and not fm.get("direction"):
+        print("direction check not sent yet: send the user a preview and ask about direction now "
+              "(marathon.py ask, default: keep going; gate.md)")
     for reviewer, dims in carried.items():
         values = ", ".join(f"{k}={'n/a' if v is None else f'{v:g}'}" for k, v in dims.items())
         print(f"carried from round {prior['round']} for {reviewer}: {values}")
+    if user_note:
+        print(user_note)
     print(result)
+
+
+def user_calibration(d: Path, rules: dict, rows: list, candidate: str | None, total: float) -> tuple[str, str]:
+    """Compare the reviewers with the user's latest USER_SCORE or USER_GO. Returns (note, hold): hold is "same" when the user
+    already scored this exact artifact below the pass total (it cannot pass), "earlier" when the user's latest score
+    is below the pass total on an earlier artifact (a reviewer pass becomes USER CHECK), else ""."""
+    notes = [f"warning: unreadable CHARTER line {line!r} (USER_SCORE: <n> sha=<sha> or USER_GO: sha=<sha>)"
+             for line in rules.get("user_bad", [])]
+    current = None
+    for u in rules.get("user") or []:
+        sha = resolve_artifact(d, u["sha"])
+        if not sha and (u["score"] is None or u["score"] >= rules["pass_total"]):
+            notes.append(f"warning: user approval on unknown commit {u['sha']} ignored")  # a typo must not release
+            continue
+        current = u | {"resolved": sha}
+    if not current:
+        return "\n".join(notes), ""
+    u, sha = current, current["resolved"]
+    if u["score"] is None:
+        return "\n".join(notes + [f"user: go on {u['sha'][:7]} (USER_GO)"]), ""
+    same_rules = [float(r["total"]) for r in rows if r.get("artifact") and sha
+                  and json.loads(r.get("rubric") or "{}").get("weights") == rules["weights"]
+                  and resolve_artifact(d, r["artifact"].removesuffix("-dirty")) == sha]
+    note = f"user: {u['score']:g} on {u['sha'][:7]}" + ("" if sha else " (commit not found)")
+    if same_rules:
+        gap = same_rules[-1] - u["score"]
+        note += f"; reviewers gave that artifact {same_rules[-1]:.1f} (gap {gap:+.1f}); calibrated estimate now {total - gap:.1f}"
+    notes.append(note)
+    if u["score"] >= rules["pass_total"]:
+        return "\n".join(notes), ""
+    if sha and sha == candidate:
+        notes[-1] += f"; the user scored this artifact below {rules['pass_total']:g}: it cannot pass"
+        return "\n".join(notes), "same"
+    notes[-1] += ("; reviewers alone cannot release: preview it, show the user how each of their reasons was fixed and "
+                  "record a new USER_SCORE or USER_GO (gate.md, references/review-principles.md)")
+    return "\n".join(notes), "earlier"
 
 
 # ---------- environment ----------
@@ -1820,6 +2315,14 @@ def _run(cmd: list, timeout: int = 15, *, input: str | None = None, errors: str 
         return subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors=errors, timeout=timeout, input=input, stdin=subprocess.DEVNULL if input is None else None)
     except (OSError, subprocess.TimeoutExpired):
         return None
+
+
+LESSONS_MAX = 3000  # lessons.md is read at every kickoff; dated case notes belong in each project
+
+
+def lessons_check(path: Path | None = None) -> tuple[bool, str]:
+    n = len((path or SKILL / "lessons.md").read_text(encoding="utf-8"))
+    return n <= LESSONS_MAX, f"{n:,} chars" + ("" if n <= LESSONS_MAX else "; move dated notes into the project, keep short rules")
 
 
 def cmd_preflight(a) -> None:
@@ -1852,6 +2355,8 @@ def cmd_preflight(a) -> None:
     free = shutil.disk_usage(Path.home()).free / 1e9
     ok(f"disk free (need ≥{need} GB)", free >= need, f"{free:.0f} GB")
     rows.append(("CPU cores", "OK", f"{os.cpu_count()} (respect your hardware limits)"))
+    good, note = lessons_check()
+    rows.append((f"lessons.md ≤{LESSONS_MAX:,} chars", "OK" if good else "WARN", note))
     s = HOME / "settings.json"
     hooked = s.exists() and HOOK_ID in s.read_text(encoding="utf-8")
     rows.append(("marathon Stop hook", "OK", "installed (a marathon is running)" if hooked else "added automatically at set-status running"))
@@ -2020,10 +2525,35 @@ def update_worker_row(rows: list[dict], wid: str, fields: dict) -> dict:
     return row
 
 
+def benchmark_problem(d: Path) -> str:
+    """Before the first build/ui worker: 3+ examples in research/benchmark/ and BORROW.md, or a CHARTER 'BENCHMARK: none <why>'."""
+    if not (d / "CHARTER.md").exists() or not (d / "STATE.md").exists():
+        return ""
+    charter = (d / "CHARTER.md").read_text(encoding="utf-8-sig")
+    if "## What the user will do with it" not in charter:
+        return ""  # a CHARTER from before this rule (2026-11-05): the project keeps its old workflow
+    if re.search(r"^BENCHMARK:\s*none\s+\S", charter, re.M | re.I):
+        return ""
+    bench = d / "research" / "benchmark"
+    examples = [p for p in bench.iterdir() if not p.name.startswith(".") and p.name.lower() != "borrow.md"] if bench.is_dir() else []
+    if len(examples) >= 3 and (bench / "BORROW.md").exists():
+        return ""
+    return ("no benchmark yet: before the first build worker put 3–5 of the best examples of the same kind (screenshots, clips "
+            "or saved pages) in research/benchmark/ and write research/benchmark/BORROW.md, the things to borrow (research.md). "
+            "When nothing of the same kind exists, add 'BENCHMARK: none <why>' to CHARTER.")
+
+
 def upsert_worker(d: Path, wid: str, fields: dict) -> dict:
     """Create or update one worker atomically; numeric fields given as +N are added."""
+    touch_activity(d)
     with worker_lock(d):
         rows = read_workers(d, _locked=True)
+        cls = fields.get("class") or next((r.get("class") for r in rows if r.get("id") == wid), "")
+        if (fields.get("status") == "running" and cls in ("build", "ui")
+                and not any(r.get("class") in ("build", "ui") and r.get("id") != wid for r in rows)):
+            problem = benchmark_problem(d)
+            if problem:
+                raise SystemExit(problem)
         row = update_worker_row(rows, wid, fields)
         write_workers(d, rows, _locked=True)
         return row
@@ -2478,8 +3008,9 @@ def ask_questions(path: str) -> list[dict]:
         qs = json.loads(Path(path).read_text(encoding="utf-8-sig"))
     except (OSError, ValueError) as e:
         raise SystemExit(f"questions: {e}")
-    if not isinstance(qs, list) or not 1 <= len(qs) <= 5:
-        raise SystemExit("questions: supply 1–5 questions")
+    # The kickoff auto_resume question (intake.md) rides along outside the 5-question budget.
+    if not isinstance(qs, list) or not qs or sum(isinstance(q, dict) and q.get("id") != "auto_resume" for q in qs) > 5:
+        raise SystemExit("questions: supply 1–5 questions (plus auto_resume at kickoff)")
     ids = set()
     for q in qs:
         if not isinstance(q, dict) or not isinstance(q.get("id"), str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]*", q["id"]):
@@ -2552,6 +3083,22 @@ def ask_answers(data: dict, text: str) -> dict:
 
 
 def cmd_ask(a) -> None:
+    if getattr(a, "question", None):
+        if a.file or a.resolve or a.status:
+            raise SystemExit("ask: give either a question or --file / --resolve / --status")
+        opts = [o.strip() for o in (a.options or "").split("|") if o.strip()]
+        if len(opts) < 2:
+            raise SystemExit('ask: a one-line question needs --options "A|B" (each option says what happens if chosen)')
+        default = a.default or opts[0]
+        if default not in opts and re.fullmatch(r"[A-Ha-h]", default) and ord(default.upper()) - 65 < len(opts):
+            default = opts[ord(default.upper()) - 65]  # --default B = the second option
+        q = {"id": "q1", "text": a.question.strip(), "options": opts, "default": default}
+        path = Path(a.dir).resolve() / ".tmp" / "question-one.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps([q], ensure_ascii=False), encoding="utf-8")
+        a.file = str(path)
+    elif not (a.file or a.resolve or a.status):
+        raise SystemExit('ask: give a question (ask <dir> "question" --options "A|B" --default A), or --file, --resolve or --status')
     timer = getattr(a, "at_deadline", False)
     if (a.answers is not None and not a.resolve) or (a.wait is not None and not a.file) or (timer and not a.resolve):
         raise SystemExit("ask: --answers needs --resolve; --wait needs --file; --at-deadline needs --resolve")
@@ -2687,6 +3234,8 @@ def main() -> None:
         p.set_defaults(f=command)
         return p
     p = parser("init", cmd_init); p.add_argument("--type", required=True, choices=["game", "site", "research"])
+    p.add_argument("--format", choices=sorted(x.stem for x in SCORING_DIR.glob("*.json")),
+                   help="the user's scoring profile for this kind of deliverable; omit when it fits none (generic rubric)")
     p.add_argument("--title", required=True); p.add_argument("--budget", type=float, default=12)
     p.add_argument("--mode", default="balanced", choices=["fast", "balanced", "efficient"])
     p.add_argument("--anywhere", action="store_true", help="compatibility flag; init accepts any directory")
@@ -2694,6 +3243,8 @@ def main() -> None:
     p.add_argument("--reason", required=True)
     p = parser("claim", cmd_claim)
     p = parser("wait", cmd_wait, "gate-wait"); p.add_argument("what", nargs="?"); p.add_argument("--clear", action="store_true")
+    p.add_argument("--for", dest="for_ids", help="worker ids: block until they end, at most --max minutes")
+    p.add_argument("--max", type=float, default=120)
     p.add_argument("--gate", action="store_true"); p.add_argument("--round", type=int); p.add_argument("--start", action="store_true")
     p = parser("log", cmd_log); p.add_argument("text", nargs="?"); p.add_argument("--lead", action="store_true")
     p.add_argument("--at")
@@ -2739,7 +3290,9 @@ def main() -> None:
     p.add_argument("--short", action="store_true"); p.add_argument("--profiles", action="store_true")
     p.add_argument("--models", action="store_true"); p.add_argument("--name")
     p = parser("ask", cmd_ask, help="question widget, answers and deadline defaults")
-    g = p.add_mutually_exclusive_group(required=True)
+    p.add_argument("question", nargs="?", help='one question: ask <dir> "question" --options "A|B" --default A')
+    p.add_argument("--options"); p.add_argument("--default")
+    g = p.add_mutually_exclusive_group()
     g.add_argument("--file"); g.add_argument("--resolve", action="store_true"); g.add_argument("--status", action="store_true")
     p.add_argument("--wait", type=float); p.add_argument("--answers"); p.add_argument("--at-deadline", action="store_true")
     p = parser("lock", cmd_lock, help="machine-wide browser lease"); p.add_argument("resource", choices=["browser"])
@@ -2772,7 +3325,7 @@ def main() -> None:
     if a.f == cmd_status and a.report and a.mark and a.save == "-":
         a.saved_text = sys.stdin.buffer.read().decode("utf-8-sig")
     d = Path(a.dir).resolve() if getattr(a, "dir", None) else None
-    writes = a.f in (cmd_claim, cmd_set, cmd_note, cmd_log, cmd_wait, cmd_score, cmd_handoff)
+    writes = a.f in (cmd_claim, cmd_set, cmd_note, cmd_log, cmd_wait, cmd_score, cmd_handoff) and not getattr(a, "for_ids", None)
     writes = writes or (a.f == cmd_status and a.report and a.mark)
     if d and (d / "STATE.md").exists() and writes:
         with file_lock(d / ".tmp" / "state-command.lock", timeout=10, label="state command"):
