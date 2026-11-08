@@ -4,11 +4,15 @@
     python tools/make_animation_zip.py [--repo PATH]   # default: ../media-pipeline next to this repo
 
 Takes only files tracked at HEAD (git archive), so nothing local, generated or secret is packed, and adds one-click
-launchers plus a Chinese read-me at the top of the unzipped folder.
+launchers plus a Chinese read-me at the top of the unzipped folder. The owner's paths, name, Drive folders and internal
+service names are replaced on the way in (REDACT, FILE_RULES; the repo itself keeps them, so the owner's own setup is
+unchanged), every packed Python file must still compile, and a strict leak scan (LEAKS) stops the build on anything
+new: review it and add a rule, never an exception for a real private detail.
 """
 import argparse
 import hashlib
 import io
+import re
 import subprocess
 import tarfile
 import zipfile
@@ -90,6 +94,101 @@ python tests/e2e_sample.py --engine edge 会做一部 3 个镜头的样片，显
 '''
 
 
+# Applied to every packed text file, in order; each Windows path rule also covers its doubled-backslash spelling.
+# The replacement paths do not exist on other PCs, so the code falls back to its portable defaults exactly as before.
+REDACT = [
+    ('E:\\_GoogleDriveMount\\My Drive', 'G:\\My Drive'),
+    ('E:\\Google Drive\\My Drive', 'G:\\My Drive'),
+    ('E:\\AI\\Claude\\temp', 'C:\\Temp'),
+    ('E:\\AI\\Tools', 'C:\\mp-tools'),
+    ('E:/AI/Tools', 'C:/mp-tools'),
+    ('E:\\Claude\\261012\\videos', 'C:\\films'),
+    ('E:/Claude/261012/videos', 'C:/films'),
+    ('E:\\Claude\\repos\\china-city-films', 'C:\\films\\china-city-films'),
+    ("Yang's ai-config copy", "the author's synced copy"),
+    ("Yang's PCs", "the author's PCs"),
+    ("Yang's synced copy", "the author's synced copy"),
+    ('<!-- yang-ai-config -->', '<!-- author-synced-copy -->'),
+    ('Sub2API', 'API gateway'),
+    ('My Drive/AI Tools and Business/历史动画短片/', '<MP_DRIVE_ROOT>/'),
+    ('<drive>/历史动画短片/<region>/', '<MP_DRIVE_ROOT>/<region>/'),
+    ('default the 历史动画短片 Drive folder when it exists, else none', 'no default (the films stay in renders/)'),
+]
+# Whole passages that must change shape, per packed file: (old, new); each old must occur exactly once.
+FILE_RULES = {
+    'mp/deliver.py': [(
+        "# My Drive is mounted differently per PC (E:\\Google Drive\\My Drive, a junction E:\\Google Drive -> My Drive, or the\n"
+        "# DriveFS folder mount E:\\_GoogleDriveMount\\My Drive); MP_DRIVE_ROOT overrides. No Drive folder found (another\n"
+        "# person's PC): DRIVE_ROOT is None and the films stay in renders/.\n"
+        "_SERIES = os.path.join('AI Tools and Business', '历史动画短片')\n"
+        "DRIVE_ROOT = os.environ.get('MP_DRIVE_ROOT') or next(\n"
+        "    (os.path.join(d, _SERIES) for d in (r'E:\\Google Drive\\My Drive', r'E:\\Google Drive', r'E:\\_GoogleDriveMount\\My Drive')\n"
+        "     if os.path.isdir(os.path.join(d, 'AI Tools and Business'))), None)\n",
+        "# MP_DRIVE_ROOT names a folder (for example a synced Google Drive folder) that delivered films are also copied to;\n"
+        "# without it the films stay in renders/.\n"
+        "DRIVE_ROOT = os.environ.get('MP_DRIVE_ROOT') or None\n"), (
+        # The owner's PCs treat a missing Drive folder as an error; everyone else just keeps the films in renders/.
+        "        if os.path.isdir(r'E:\\AI\\Tools'):  # Yang's PCs deliver to Drive: a missing mount is an error, not \"done\"\n"
+        "            sys.exit('Google Drive folder not found (is Drive for desktop running?); films are in renders/ only')\n",
+        "")],
+    'README.md': [('git clone https://github.com/washingtonshao-web/media-pipeline && cd media-pipeline',
+                   'cd animation-making                # the unzipped folder of this package')],
+    'skill/animation-making/references/first-run.md': [(
+        "If the user has no clone yet: `git clone https://github.com/washingtonshao-web/media-pipeline` into their usual\n"
+        "code folder (needs a GitHub account with access; private repo). Pull before every session: `git pull`.\n",
+        "This package is a copy of the media-pipeline repo: keep its unzipped folder where it is.\n")],
+    # A regression test on the author's own films: skipped, not failed, where those films are not on the PC.
+    'tests/test_titles.py': [('class TitleTests(unittest.TestCase):\n',
+                              "@unittest.skipUnless(ROOT.is_dir(), 'needs the author\\'s film repo')\n"
+                              'class TitleTests(unittest.TestCase):\n')],
+}
+# Anything matching these after redaction stops the build (case-sensitive unless (?i)).
+LEAKS = [
+    r'\bYang\b', r'yang-ai-config', r'ai-config', r'AI Tools and Business', r'washingtonshao-web/media-pipeline',
+    r'[A-Za-z]:[\\/]+(?:AI[\\/]|Claude[\\/]|Google Drive|_GoogleDriveMount)', r'Sub2API', r'(?i)geneseeq',
+    r'(?i)\b(?!marathon\.)[a-z0-9-]+\.falconshire\.com', r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}',
+    r'sk-[A-Za-z0-9]{20,}', r'AKIA[0-9A-Z]{16}', r'ghp_[A-Za-z0-9]{30,}', r'-----BEGIN [A-Z ]*PRIVATE KEY',
+]
+EMAIL_OK = {'noreply@anthropic.com'}
+
+
+def redact(name, data):
+    """Text members only (UTF-8 without NUL); binary files pass through unchanged."""
+    if b'\0' in data:
+        return data
+    try:
+        text = data.decode('utf-8')
+    except UnicodeDecodeError:
+        return data
+    for old, new in FILE_RULES.get(name, []):
+        n = text.replace('\r\n', '\n').count(old)
+        if n != 1:
+            raise SystemExit(f'redaction rule for {name} matched {n} times; review the source change: {old[:60]!r}')
+        crlf = '\r\n' in text
+        text = text.replace('\r\n', '\n').replace(old, new)
+        text = text.replace('\n', '\r\n') if crlf else text
+    for old, new in REDACT:
+        text = text.replace(old, new)
+        if '\\' in old:
+            text = text.replace(old.replace('\\', '\\\\'), new.replace('\\', '\\\\'))
+    return text.encode('utf-8')
+
+
+def leaks(name, data):
+    try:
+        text = data.decode('utf-8')
+    except UnicodeDecodeError:
+        return []
+    found = []
+    for pattern in LEAKS:
+        for m in re.finditer(pattern, text):
+            if m.group() not in EMAIL_OK:
+                line = text.count('\n', 0, m.start()) + 1
+                start = text.rfind('\n', 0, m.start()) + 1
+                found.append(f'{name}:{line}: {m.group()}  | {text[start:start + 160].splitlines()[0].strip()}')
+    return found
+
+
 def add(archive, name, data, mode=0o100644):
     info = zipfile.ZipInfo(TOP + name, STAMP)
     info.create_system = 3
@@ -112,9 +211,21 @@ def main():
     try:
         with zipfile.ZipFile(temporary, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as archive, \
                 tarfile.open(fileobj=io.BytesIO(tar)) as members:
+            found, sources = [], {}
             for member in sorted((m for m in members.getmembers() if m.isfile()), key=lambda m: m.name):
                 mode = 0o100755 if member.name.endswith('.sh') else 0o100644
-                add(archive, member.name, members.extractfile(member).read(), mode)
+                data = redact(member.name, members.extractfile(member).read())
+                found += leaks(member.name, data)
+                if member.name.endswith('.py'):
+                    sources[member.name] = data
+                add(archive, member.name, data, mode)
+            for name, data in sources.items():
+                try:
+                    compile(data, name, 'exec')
+                except SyntaxError as e:
+                    raise SystemExit(f'{name} does not compile after redaction: {e}')
+            if found:
+                raise SystemExit('leak scan: ' + str(len(found)) + ' hit(s); add a REDACT/FILE_RULES rule:\n  ' + '\n  '.join(found[:40]))
             add(archive, 'install.cmd', INSTALL_CMD.encode('ascii'))
             add(archive, 'install.sh', INSTALL_SH.encode('ascii'), 0o100755)
             add(archive, '安装说明.txt', '﻿'.encode('utf-8') + README.replace('\n', '\r\n').encode('utf-8'))

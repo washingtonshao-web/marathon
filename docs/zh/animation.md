@@ -144,7 +144,7 @@
 
 ## 下载和安装
 
-1. 下载 [animation-making.zip](/animation-making.zip)（约 2 MB），解压到一个固定的位置，比如“文档”。装好后不要再移动：skill 会指向这个文件夹。
+1. 下载 [animation-making.zip](/animation-making.zip)（约 5 MB），解压到一个固定的位置，比如“文档”。装好后不要再移动：skill 会指向这个文件夹。
 2. Windows：双击 `install.cmd`。macOS 或 Linux：在文件夹里运行 `sh install.sh`。它会安装 Python 包、ffmpeg、字体和历史地图数据（约 400 MB），并把 skill 装进 Claude Code 和 Codex。
 3. 最后一屏是体检结果。显示 READY 就可以开始；显示 NOT READY 时，会逐项写明还缺什么、怎么补。
 4. 重启 Claude Code 或 Codex，说：“用动画制作做一部关于 xx 的短片”。
