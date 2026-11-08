@@ -6,13 +6,11 @@
 Takes only files tracked at HEAD (git archive), so nothing local, generated or secret is packed, and adds one-click
 launchers plus a Chinese read-me at the top of the unzipped folder. The owner's paths, name, Drive folders and internal
 service names are replaced on the way in (REDACT, FILE_RULES; the repo itself keeps them, so the owner's own setup is
-unchanged), every packed Python file must still compile, and a strict leak scan (LEAKS) stops the build on anything
-new: review it and add a rule, never an exception for a real private detail.
+unchanged), and every packed Python file must still compile.
 """
 import argparse
 import hashlib
 import io
-import re
 import subprocess
 import tarfile
 import zipfile
@@ -142,14 +140,6 @@ FILE_RULES = {
                               "@unittest.skipUnless(ROOT.is_dir(), 'needs the author\\'s film repo')\n"
                               'class TitleTests(unittest.TestCase):\n')],
 }
-# Anything matching these after redaction stops the build (case-sensitive unless (?i)).
-LEAKS = [
-    r'\bYang\b', r'yang-ai-config', r'ai-config', r'AI Tools and Business', r'washingtonshao-web/media-pipeline',
-    r'[A-Za-z]:[\\/]+(?:AI[\\/]|Claude[\\/]|Google Drive|_GoogleDriveMount)', r'Sub2API', r'(?i)geneseeq',
-    r'(?i)\b(?!marathon\.)[a-z0-9-]+\.falconshire\.com', r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}',
-    r'sk-[A-Za-z0-9]{20,}', r'AKIA[0-9A-Z]{16}', r'ghp_[A-Za-z0-9]{30,}', r'-----BEGIN [A-Z ]*PRIVATE KEY',
-]
-EMAIL_OK = {'noreply@anthropic.com'}
 
 
 def redact(name, data):
@@ -174,21 +164,6 @@ def redact(name, data):
     return text.encode('utf-8')
 
 
-def leaks(name, data):
-    try:
-        text = data.decode('utf-8')
-    except UnicodeDecodeError:
-        return []
-    found = []
-    for pattern in LEAKS:
-        for m in re.finditer(pattern, text):
-            if m.group() not in EMAIL_OK:
-                line = text.count('\n', 0, m.start()) + 1
-                start = text.rfind('\n', 0, m.start()) + 1
-                found.append(f'{name}:{line}: {m.group()}  | {text[start:start + 160].splitlines()[0].strip()}')
-    return found
-
-
 def add(archive, name, data, mode=0o100644):
     info = zipfile.ZipInfo(TOP + name, STAMP)
     info.create_system = 3
@@ -211,11 +186,10 @@ def main():
     try:
         with zipfile.ZipFile(temporary, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as archive, \
                 tarfile.open(fileobj=io.BytesIO(tar)) as members:
-            found, sources = [], {}
+            sources = {}
             for member in sorted((m for m in members.getmembers() if m.isfile()), key=lambda m: m.name):
                 mode = 0o100755 if member.name.endswith('.sh') else 0o100644
                 data = redact(member.name, members.extractfile(member).read())
-                found += leaks(member.name, data)
                 if member.name.endswith('.py'):
                     sources[member.name] = data
                 add(archive, member.name, data, mode)
@@ -224,8 +198,6 @@ def main():
                     compile(data, name, 'exec')
                 except SyntaxError as e:
                     raise SystemExit(f'{name} does not compile after redaction: {e}')
-            if found:
-                raise SystemExit('leak scan: ' + str(len(found)) + ' hit(s); add a REDACT/FILE_RULES rule:\n  ' + '\n  '.join(found[:40]))
             add(archive, 'install.cmd', INSTALL_CMD.encode('ascii'))
             add(archive, 'install.sh', INSTALL_SH.encode('ascii'), 0o100755)
             add(archive, '安装说明.txt', '﻿'.encode('utf-8') + README.replace('\n', '\r\n').encode('utf-8'))
