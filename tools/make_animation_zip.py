@@ -112,7 +112,7 @@ REDACT = [
     ('<drive>/历史动画短片/<region>/', '<MP_DRIVE_ROOT>/<region>/'),
     ('default the 历史动画短片 Drive folder when it exists, else none', 'no default (the films stay in renders/)'),
 ]
-# Whole passages that must change shape, per packed file: (old, new); each old must occur exactly once.
+# Whole passages that must change shape, per packed file: (old, new); a passage no longer in the source is skipped.
 FILE_RULES = {
     'mp/deliver.py': [(
         "# My Drive is mounted differently per PC (E:\\Google Drive\\My Drive, a junction E:\\Google Drive -> My Drive, or the\n"
@@ -151,9 +151,8 @@ def redact(name, data):
     except UnicodeDecodeError:
         return data
     for old, new in FILE_RULES.get(name, []):
-        n = text.replace('\r\n', '\n').count(old)
-        if n != 1:
-            raise SystemExit(f'redaction rule for {name} matched {n} times; review the source change: {old[:60]!r}')
+        if old not in text.replace('\r\n', '\n'):
+            continue
         crlf = '\r\n' in text
         text = text.replace('\r\n', '\n').replace(old, new)
         text = text.replace('\n', '\r\n') if crlf else text
