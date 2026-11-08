@@ -1744,7 +1744,16 @@ check("S8 configured Claude fallback wording", "two configured Claude reviewers"
       and "two configured Claude reviewers" in (HERE / "codex_worker.py").read_text(encoding="utf-8"))
 
 # S9: backend settings and explicit-only stdin.
-check("S9 default backend order", M.run_value({}, "codex_backends") == "subscription")
+check("S9 default backend order is subscription", M.run_value({}, "codex_backends") == "subscription")
+for said, order in (("api", "api,subscription"), ("subscription", "subscription,api"), ("订阅,api", "subscription,api")):
+    out = m("backends", said)
+    check("S9 backends switch " + said, f"codex_backends {order} " in out and M.run_value({}, "codex_backends") == order
+          and M.run_value({"codex_backends": "api"}, "codex_backends") == "api", out)
+check("S9 backends rejects unknown names", "codex_backends:" in m("backends", "bogus", code=1)
+      and M.run_value({}, "codex_backends") == "subscription,api")
+M.BACKENDS_FILE.write_text("garbage\n", encoding="utf-8")
+check("S9 invalid backends file means default", M.run_value({}, "codex_backends") == "subscription")
+check("S9 backends default removes the file", "; default)" in m("backends", "default") and not M.BACKENDS_FILE.exists())
 for value in ("api,subscription", "api,订阅", "subscription"):
     out = m("set", S3, "codex_backends=" + value)
     check("S9 set normalises backend aliases " + value, "codex_backends" in out and "Codex backends:" in out)

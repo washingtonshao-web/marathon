@@ -28,7 +28,7 @@ The user's own parameters (purity, enrichment, input mass, depth, prices) go int
 - Every headline number has ≥2 independent sources, or is marked as an estimate with its derivation.
 - Regulatory status, approvals, prices and company facts are checked fresh, because they change.
 - The gate samples 10 claims against their sources.
-- Design `scripts/ai_tells.py` runs on the built pages before each gate (writing.md caps).
+- de-ai `scripts/ai_tells.py` runs on the built pages before each gate (caps in its docstring); voice problems are fixed with the de-ai skill.
 
 ## Independence
 When the user runs the same brief with another model or session, don't read its output unless asked. When asked to compare, tabulate where and why the results differ.

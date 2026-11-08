@@ -55,6 +55,8 @@ Switch any time in plain words ("workers to Astra", "switch to all Claude").
 2. Windows: double-click `install.cmd`. macOS / Linux: `sh install.sh`.
 3. In Claude Code or Codex: *"Use marathon to build …"*
 
+The installer also adds **de-ai** (去AI味), a small companion skill. Marathon's reviewers run its `ai_tells.py` to cap the voice score when prose sounds machine-written. You can also call it by itself: say *"de-AI this page"*, *"humanize this"* or *"去AI味"*. It measures the text (tally sentences, notes on every line, talk about the document, stock phrases, Chinese and English sentence tells), rewrites it without changing facts or numbers, and reports the numbers before and after. It is not loaded unless you ask for it.
+
 Requires Python 3.10+ and Claude Code (the lead and the review gate run on Claude); the Codex CLI is needed for the default Codex-worker mode. To use an API instead of a ChatGPT sign-in for Codex workers, set `MARATHON_API_BASE_URL` and `MARATHON_API_KEY` (any OpenAI-compatible Responses endpoint). Uninstall with `-Uninstall` / `--uninstall`.
 
 ## Repository layout
@@ -62,6 +64,7 @@ Requires Python 3.10+ and Claude Code (the lead and the review gate run on Claud
 | Path | What |
 |---|---|
 | `skill/marathon/` | The skill: `SKILL.md`, workflow docs, mode cards, `scripts/marathon.py`, `scripts/codex_worker.py`, tests |
+| `skill/de-ai/` | The de-ai (去AI味) companion skill: `SKILL.md`, `patterns.md`, `scripts/ai_tells.py` |
 | `install/` | `install.cmd` + `install.ps1` (Windows), `install.sh` (macOS/Linux) |
 | `docs/` | The guide in English and Chinese |
 | `site/` | Source of marathon.falconshire.com (built with a design kit that is not part of this repo; the published pages are self-contained) |

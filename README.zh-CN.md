@@ -55,6 +55,8 @@ Gate     Opus 5.5 xhigh + GPT-6-Astra high
 2. Windows：双击 `install.cmd`。macOS / Linux：`sh install.sh`。
 3. 在 Claude Code 或 Codex 里说："用 marathon 做……"
 
+安装程序会一起装上 **de-ai**（去AI味），一个配套的小技能。Marathon 的评审会运行它的 `ai_tells.py`：文字读起来像机器写的，就给“口语化”这一项封顶。它也可以单独用，说“去AI味”“把这页改成人话”或“humanize”就会启动。它先量出问题，比如计数句、每行都有注释、谈论文档本身、套话，以及中英文的 AI 腔句式；然后在不改事实和数字的前提下改写，最后报告改前和改后的数字。不点名就不会加载。
+
 需要 Python 3.10+ 和 Claude Code（lead 和评审闸门都在 Claude 上运行）；默认的 Codex worker 模式还需要 Codex CLI。如果 Codex worker 想用 API 而不是 ChatGPT 登录，设置 `MARATHON_API_BASE_URL` 和 `MARATHON_API_KEY`（任何 OpenAI 兼容的 Responses 接口）。卸载：加 `-Uninstall` / `--uninstall` 再运行一次安装程序。
 
 ## 仓库结构
@@ -62,6 +64,7 @@ Gate     Opus 5.5 xhigh + GPT-6-Astra high
 | 路径 | 内容 |
 |---|---|
 | `skill/marathon/` | skill 本体：`SKILL.md`、流程文档、模式说明卡、`scripts/marathon.py`、`scripts/codex_worker.py`、测试 |
+| `skill/de-ai/` | 去AI味配套技能：`SKILL.md`、`patterns.md`、`scripts/ai_tells.py` |
 | `install/` | `install.cmd` + `install.ps1`（Windows）、`install.sh`（macOS/Linux） |
 | `docs/` | 中英文文档 |
 | `site/` | marathon.falconshire.com 的源码（构建时用到一套不在本仓库里的设计组件；发布出去的网页是自包含的） |

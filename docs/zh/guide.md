@@ -6,7 +6,7 @@
 
 1. 下载 [marathon-skill.zip](/marathon-skill.zip) 并解压。
 2. Windows：双击 `install.cmd`。macOS 或 Linux：在解压出来的文件夹里运行 `sh install.sh`。
-3. 安装程序会把 skill 复制到 `~/.claude/skills/marathon`（装了 Claude Code 时）和 `~/.codex/skills/marathon`（装了 Codex CLI 时）。已有的旧版本会移到技能目录之外的 `~/.claude/marathon-backups/`（或 `~/.codex/marathon-backups/`）。安装时不动其他任何东西；项目运行期间，Marathon 会在 `~/.claude/settings.json` 里加一个自己的停止 hook，没有项目在跑时再删掉（卸载时也会删掉）。
+3. 安装程序会把 skill 复制到 `~/.claude/skills/marathon`（装了 Claude Code 时）和 `~/.codex/skills/marathon`（装了 Codex CLI 时）。同时会在旁边装上配套的小技能 **de-ai**（去AI味，`skills/de-ai`）。评审会对所有给人读、给人听的内容运行它的 `ai_tells.py`；你也可以单独点名使用（“去AI味”“改成人话”"humanize"），让它量出并改掉读起来像机器写的文字。已有的旧版本会移到技能目录之外的 `~/.claude/marathon-backups/`（或 `~/.codex/marathon-backups/`）。安装时不动其他任何东西；项目运行期间，Marathon 会在 `~/.claude/settings.json` 里加一个自己的停止 hook，没有项目在跑时再删掉（卸载时也会删掉）。
 
 需要 Python 3.10 或更新版本，以及 Claude Code：lead 和评审闸门都在 Claude 上运行。默认模式还需要登录了 ChatGPT 的 OpenAI Codex CLI，或者你自己的 OpenAI 兼容接口（见[模型和花费](#模型和花费)）。没有 Codex 的话，开工时选"全 Claude"模式即可。
 

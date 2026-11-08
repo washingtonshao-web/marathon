@@ -12,7 +12,7 @@ Generate docs/WORKER-RULES.md before wave 1 and link it from briefs. Copy worker
 - A fix brief names the files to change and the problems to fix, quoting the reviewer or the user. Read only those files and what they directly reference; do not read the whole project.
 - Output that may run past 40 lines (tests, builds, logs, scraping) goes to a file; report only the result and the failing lines. The project's digest scripts, when it has them, do this for tests and walks.
 - Check scripts (ai_tells.py and the like) are hints, not targets: never rewrite text just to move a script's number. Reading it aloud like a colleague is the test.
-- Reader-facing text (pages, captions, slides, narration) follows the design skill's writing.md when it is installed; run its scripts/ai_tells.py (--spoken for narration) and report the summary line with the work, so voice problems surface in the build, not at the gate.
+- Reader-facing text (pages, captions, slides, narration) follows the design skill's writing.md when it is installed; run de-ai scripts/ai_tells.py (--spoken for narration) and report the summary line with the work, so voice problems surface in the build, not at the gate. To fix flagged text, follow the de-ai skill (read only the patterns.md sections it flags).
 - One contact sheet with scripts/contact_sheet.py; inspect individual shots for specific defects. Save generated images in-project; follow the user's asset policy.
 
 Reuse relevant rules from your assets folder's process templates; current brief/marathon permissions win.

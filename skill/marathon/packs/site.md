@@ -31,7 +31,7 @@ Plain or white basemaps were rejected every time. Start from a proven basemap (e
 ## Hard checks
 - Design `shoot.py` (desktop + iPhone, fonts, overflow, contrast) and the click test.
 - Link checker.
-- Design `scripts/ai_tells.py` on the built pages (writing.md caps).
+- de-ai `scripts/ai_tells.py` on the built pages (caps in its docstring); fixes with the de-ai skill.
 - Data validators: counts, fields, placeholders, duplicates, licences present.
 - Payload size and timing on the live URL.
 

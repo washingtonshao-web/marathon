@@ -18,7 +18,7 @@ and missing onboarding. Each one found is a problem in the list below.
 With a CHARTER Format/Scoring card: first do Pass A (review-principles
 section 4) cold, from PROMPTS only: audience, first impression, missing
 content a colleague would ask for, five quoted machine-sounding sentences;
-score share_ready (and voice if present). Then run ai_tells.py (--spoken
+score share_ready (and voice if present). Then run de-ai ai_tells.py (--spoken
 for narration), apply the Scoring card caps, mark each User calibration
 reason FIXED / NOT FIXED, and explain any total more than 10 above the
 latest USER_SCORE.

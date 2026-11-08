@@ -54,6 +54,13 @@ def backend_order(d: Path, start: str | None = None) -> list[str]:
     return order
 
 
+def next_backend(d: Path, current: str) -> str | None:
+    """The first backend after `current` in this run's order that has a key (subscription needs none)."""
+    order = backend_order(d)
+    later = order[order.index(current) + 1:] if current in order else []
+    return next((b for b in later if b == "subscription" or backend_key(b)), None)
+
+
 DISABLED_MCP_SERVERS = ()
 PROTECTED_SCRATCH = {"reports", "briefs", "gate", "gpu", "bakeoff", "bakeoff-keys", "bakeoff-logs"}
 _HELD = threading.local()
@@ -119,8 +126,11 @@ FALLBACK_ERRORS = re.compile(r"usage limit|rate limit|quota|429|401|403|unauthor
 # Errors that end a run early through no fault of the work: resume the same thread instead of waiting for the lead.
 CAPACITY_ERRORS = re.compile(r"at capacity|overloaded|try a different model|rate.?limit|too many requests|\b429\b|"
                              r"internal server error|server.?error|(?:status|http|code)[ :=]*5\d\d\b|stream (?:error|disconnected)", re.I)
+# Errors that mean this backend's money or plan allowance is spent: move the same thread to the next backend.
+QUOTA_ERRORS = re.compile(r"usage limit|quota|insufficient[_ ]?(?:balance|credits?|funds)|billing|payment required|\b402\b|"
+                          r"credit balance|spend(?:ing)? limit", re.I)
 AUTO_RESUMES = 2
-RESUME_MESSAGE = ("The previous attempt stopped on a model capacity or server error, not on your work. Continue the task "
+RESUME_MESSAGE = ("The previous attempt stopped on a model capacity, quota or server error, not on your work. Continue the task "
                   "from where it stopped: check what is already in the tree, do not redo finished steps.")
 FOOTER = """
 
@@ -469,7 +479,10 @@ def base_cmd(model: str, effort: str, read_only: bool, summary: Path) -> list[st
 def attempt(d: Path, rd: Path, wid: str, name: str, prompt: str, a, resume_thread: str = "") -> dict:
     direct = (m.project_key(d), wid.casefold()) not in getattr(_HELD, "keys", set())
     with worker_lifetime(d, wid):
-        order = [getattr(a, "recorded_backend", "subscription")] if resume_thread else backend_order(d, getattr(a, "backend", None))
+        # A resumed thread starts on its recorded backend and, like a new launch, only moves forward in the order:
+        # Codex keeps the conversation locally, so a thread continues on another provider (verified 2026-11-09).
+        start = getattr(a, "recorded_backend", "subscription") if resume_thread else getattr(a, "backend", None)
+        order = backend_order(d, start)
         available = [(backend, backend_key(backend)) for backend in order]
         available = [(backend, key) for backend, key in available if key or backend == "subscription"]
         if not available:
@@ -478,7 +491,7 @@ def attempt(d: Path, rd: Path, wid: str, name: str, prompt: str, a, resume_threa
             result = _attempt(d, rd, wid, name, prompt, a, resume_thread, backend, key,
                               unavailable=backend != "subscription" and not key)
             result["prior"] = i > 0
-            if not result["infra"] or resume_thread or i == len(available) - 1:
+            if not result["infra"] or i == len(available) - 1:
                 break
             record(d, wid, a, result, add=True)
         if direct and result["kind"] in ("done", "failed"):
@@ -573,7 +586,8 @@ def _attempt(d: Path, rd: Path, wid: str, name: str, prompt: str, a, resume_thre
     return {"name": name, "backend": backend, "model": model, "effort": effort, "code": code, "minutes": minutes, "word": word,
             "kind": kind, "infra": kind == "infra", "ev": ev, "summary": summary, "attempt": n, "end": time.strftime("%Y-%m-%dT%H:%M"),
             "err": (ev["errors"] or [err_text.strip()[-300:]])[-1],
-            "capacity": kind == "timeout-partial" and code is not None and bool(CAPACITY_ERRORS.search(" ".join(ev["errors"]) + " " + err_text))}
+            "capacity": kind == "timeout-partial" and code is not None and bool(CAPACITY_ERRORS.search(" ".join(ev["errors"]) + " " + err_text)),
+            "quota": kind == "timeout-partial" and code is not None and bool(QUOTA_ERRORS.search(" ".join(ev["errors"]) + " " + err_text))}
 
 
 def record(d: Path, wid: str, a, r: dict, add: bool = False) -> None:
@@ -622,6 +636,40 @@ def wait_for_room(wid: str, limit_min: float = 10) -> None:
         time.sleep(15)
 
 
+def keep_going(d: Path, rd: Path, a, r: dict, name: str, chain: list[str], capacity: bool = True) -> tuple[dict, str]:
+    """After tools ran, continue the same thread instead of leaving a timeout for the lead to steer:
+    a quota error moves it to the next backend in the order with the same model; a capacity/server error resumes it
+    with the next Codex model in the chain (the same model after a pause) at most AUTO_RESUMES times."""
+    used, resumes = r["minutes"], 0
+    while r["ev"]["thread"]:
+        hop = next_backend(d, r["backend"]) if r.get("quota") else None
+        if hop:
+            nxt, backend, why = name, hop, "QUOTA"
+        elif capacity and r.get("capacity") and resumes < AUTO_RESUMES:
+            resumes += 1
+            later = [n for n in chain[chain.index(name) + 1:] if m.resolve_model(n)[0] == "codex"] if name in chain else []
+            nxt, backend, why = (later[0] if later else name), r["backend"], "CAPACITY"
+            if nxt == name:
+                time.sleep(float(os.environ.get("CODEX_WORKER_RESUME_WAIT", "60")))
+        else:
+            break
+        print(f"{a.id} {why} {name} ({r['backend']}): {' '.join(r['err'].split())[:120]} · "
+              f"resuming the thread with {nxt} on {backend}", flush=True)
+        a.recorded_backend, budget = backend, a.minutes
+        a.minutes = max(10.0, budget - used)
+        try:
+            r2 = attempt(d, rd, a.id, nxt, RESUME_MESSAGE + footer(d, rd, a.id, a.cls, a.read_only), a,
+                         resume_thread=r["ev"]["thread"])
+        finally:
+            a.minutes = budget
+        r2["ev"]["thread"] = r2["ev"]["thread"] or r["ev"]["thread"]
+        record(d, a.id, a, r2, add=True)
+        if r2["infra"]:
+            break
+        r, name, used = r2, nxt, used + r2["minutes"]
+    return r, name
+
+
 @worker_command
 def cmd_run(a) -> None:
     d = Path(a.dir).resolve()
@@ -658,29 +706,8 @@ def cmd_run(a) -> None:
             if r["infra"]:
                 tried.append(f"{name}: {' '.join(r['err'].split())[:120] or 'no completed attempt'}")
                 continue
-            used, resumes = r["minutes"], 0
-            while r.get("capacity") and r["ev"]["thread"] and resumes < AUTO_RESUMES:
-                # Capacity/server error mid-run: continue the same thread (next Codex model in the chain, else the same
-                # model after a pause) instead of leaving a timeout for the lead to steer.
-                resumes += 1
-                later = [n for n in chain[chain.index(name) + 1:] if m.resolve_model(n)[0] == "codex"]
-                nxt = later[0] if later else name
-                print(f"{a.id} CAPACITY {name}: {' '.join(r['err'].split())[:120]} · resuming the thread with {nxt}", flush=True)
-                if nxt == name:
-                    time.sleep(float(os.environ.get("CODEX_WORKER_RESUME_WAIT", "60")))
-                a.recorded_backend, budget = r["backend"], a.minutes
-                a.minutes = max(10.0, budget - used)
-                try:
-                    r2 = attempt(d, rd, a.id, nxt, RESUME_MESSAGE + footer(d, rd, a.id, a.cls, a.read_only), a,
-                                 resume_thread=r["ev"]["thread"])
-                finally:
-                    a.minutes = budget
-                r2["ev"]["thread"] = r2["ev"]["thread"] or r["ev"]["thread"]
-                record(d, a.id, a, r2, add=True)
-                if r2["infra"]:
-                    break
-                r, name, used = r2, nxt, used + r2["minutes"]
-                model = m.resolve_model(name)[1]
+            r, name = keep_going(d, rd, a, r, name, chain)
+            model = m.resolve_model(name)[1]
             a.cleanup_terminal = r["kind"] in ("done", "failed")
             status = "timeout" if r["kind"] == "timeout-partial" else r["kind"]
             ev = r["ev"]
@@ -728,6 +755,8 @@ def cmd_steer(a) -> None:
         r = attempt(d, rd, a.id, name, a.message + footer(d, rd, a.id, a.cls, a.read_only),
                     a, resume_thread=row["thread"])
         record(d, a.id, a, r, add=True)
+        if not r["infra"]:
+            r, _ = keep_going(d, rd, a, r, name, [name], capacity=False)
         a.cleanup_terminal = r["kind"] in ("done", "failed")
         status = "failed" if r["infra"] else "timeout" if r["kind"] == "timeout-partial" else r["kind"]
         print(f"{a.id} {status.upper()} (steered) {r['minutes']:.1f} min · summary {r['summary']}"
@@ -749,11 +778,18 @@ def main() -> None:
     p.add_argument("--keep-scratch", action="store_true", help="retain this worker's .tmp/<id>/ scratch folder")
     p = sp.add_parser("backend-args", help="print shell-quoted provider flags (no keys)")
     p.add_argument("backend", choices=BACKENDS)
+    p = sp.add_parser("backend-order", help="print the backends to try, in order, that have a key (this PC's order "
+                                            "unless dir has its own codex_backends)")
+    p.add_argument("dir", nargs="?")
     p = sp.choices["run"]
     p.add_argument("--backend", choices=BACKENDS, help="start at this backend for this launch")
     a = ap.parse_args()
     if a.cmd == "backend-args":
         print(shlex.join(backend_args(a.backend)))
+        return
+    if a.cmd == "backend-order":
+        order = backend_order(Path(a.dir).resolve()) if a.dir else m.run_value({}, "codex_backends").split(",")
+        print(" ".join(b for b in order if b == "subscription" or backend_key(b)))
         return
     if a.cmd == "run" and a.cls == "gate" and not a.sha:
         ap.error("--sha is required for --class gate")

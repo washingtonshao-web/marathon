@@ -49,6 +49,15 @@ if mode == "api-error" and backend == "api":
         print(json.dumps({"type": "turn.completed", "usage": {"input_tokens": 10, "output_tokens": 2}}))
     print(json.dumps({"type": "error", "message": os.environ.get("FAKE_ERROR", "401 Unauthorized")}))
     sys.exit(1)
+if mode == "quota-tools" and backend == "subscription":
+    # the plan allowance runs out after real work: thread and tools, then a usage-limit error
+    print(json.dumps({"type": "thread.started", "thread_id": args[-2] if "resume" in args else "thr-quota"}), flush=True)
+    print(json.dumps({"type": "item.started", "item": {"type": "command_execution"}}), flush=True)
+    print(json.dumps({"type": "error", "message": "You've hit your usage limit. Upgrade or try again later."}))
+    sys.exit(1)
+if mode == "limit-sub" and backend == "subscription":
+    print(json.dumps({"type": "error", "message": "You've hit your usage limit."}))
+    sys.exit(1)
 if mode == "hold":
     flag = Path(os.environ["FAKE_HOLD"])
     flag.with_suffix(".ready").touch()

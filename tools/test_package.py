@@ -53,13 +53,15 @@ class PackageTests(unittest.TestCase):
                     self.assertIn('use marathon to build', run())
                     for target in targets:
                         self.assertTrue((target / 'SKILL.md').is_file())
+                        self.assertTrue((target.parent / 'de-ai/scripts/ai_tells.py').is_file())
                         (target / 'user-marker').write_text('old skill', encoding='utf-8')
                         (target.parent / 'other-skill').mkdir()
                     run()
                     for target in targets:
                         self.assertFalse((target / 'user-marker').exists())
                         self.assertEqual(1, len(list((target.parent.parent / 'marathon-backups').glob('marathon-*'))))
-                        self.assertEqual(['marathon', 'other-skill'], sorted(p.name for p in target.parent.iterdir()))
+                        self.assertEqual(['de-ai', 'marathon', 'other-skill'], sorted(p.name for p in target.parent.iterdir()))
+                        self.assertEqual(1, len(list((target.parent.parent / 'marathon-backups').glob('de-ai-*'))))
                     settings = home / '.claude/settings.json'
                     settings.parent.mkdir(parents=True, exist_ok=True)
                     other = {'type': 'command', 'command': 'echo keep'}
@@ -75,6 +77,7 @@ class PackageTests(unittest.TestCase):
                     self.assertEqual(before_settings, settings.read_bytes())
                     for target in targets:
                         self.assertFalse(target.exists())
+                        self.assertFalse((target.parent / 'de-ai').exists())
                         self.assertTrue((target.parent / 'other-skill').is_dir())
                     print('PASS', name, scenario, 'install/reinstall/restore/remove')
 

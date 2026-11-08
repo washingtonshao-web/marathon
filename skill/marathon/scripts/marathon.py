@@ -91,9 +91,12 @@ MODEL_ALIASES = {"astra": ("codex", "gpt-6-astra", "high"), "sol61": ("codex", "
                  "haiku": ("claude", "haiku", "")}
 SPOKEN = {"6.1 sol": "sol61", "6.1sol": "sol61", "gpt-6.1-sol": "sol61", "6.1 " + "sonnet": "sol61", "sol 6.1": "sol61",
           "gpt-6-astra": "astra", "gpt-6-sol": "sol", "gpt-6-luna": "luna", "sonnet 5.5": "sonnet", "opus 5.5": "opus"}
-CODEX_BACKENDS = ("api", "subscription")
+CODEX_BACKENDS = ("subscription", "api")
 DEFAULT_CODEX_BACKENDS = "subscription"
-SPOKEN.update({"api": "api", "subscription": "subscription", "订阅": "subscription"})
+SPOKEN.update({"api": "api", "subscription": "subscription", "订阅": "subscription", "local": "subscription", "本地": "subscription"})
+# This PC's order for every project without its own codex_backends; `marathon.py backends <first>` writes it (2026-11-09).
+BACKENDS_FILE = HOME / "codex-backends.txt"
+BACKEND_PRESETS = {"subscription": "subscription,api", "api": "api,subscription"}
 DEFAULT_WORKERS, DEFAULT_FALLBACK = "sol61", "astra,sonnet"
 # Run modes the user picks by name (2026-10-19). A profile sets a bundle of keys; any key can be changed afterwards.
 GATES = ("opus+astra", "opus", "sonnet+astra")
@@ -123,12 +126,46 @@ def run_value(fm: dict, key: str) -> str:
     if key in fm and (fm[key] or key == "worker_fallback"):
         return "" if key == "worker_fallback" and fm[key].strip().lower() == "none" else fm[key]
     if key == "codex_backends":
-        return "api,subscription" if os.environ.get("MARATHON_API_BASE_URL") and os.environ.get("MARATHON_API_KEY") else DEFAULT_CODEX_BACKENDS
+        return saved_backends() or ("api,subscription" if os.environ.get("MARATHON_API_BASE_URL") and os.environ.get("MARATHON_API_KEY") else DEFAULT_CODEX_BACKENDS)
     prof = PROFILES.get(profile, PROFILES[LEGACY_PROFILE])
     return prof["keys"].get(key, "")
 
 
-MODEL_NICE = {"gpt-6-astra": "GPT-6-Astra", "gpt-6.1-sol": "GPT-6.1-Sol", "gpt-6-sol": "GPT-6-Sol", "gpt-6-luna": "GPT-6-Luna",
+def spoken_backends(value: str) -> str:
+    return ",".join(SPOKEN.get(n.strip().lower(), n.strip().lower()) for n in value.split(","))
+
+
+def saved_backends() -> str:
+    """This PC's order from BACKENDS_FILE; a missing or invalid file means the default."""
+    try:
+        value = BACKENDS_FILE.read_text(encoding="utf-8").strip()
+        check_run_key("codex_backends", value)
+        return value
+    except (OSError, SystemExit):
+        return ""
+
+
+def cmd_backends(a) -> None:
+    """One switch for every project on this PC: a single name puts it first (subscription / api), a comma list is the
+    exact order, `default` removes the file. Projects with their own codex_backends in STATE.md keep it."""
+    if a.order:
+        value = a.order.strip()
+        if value.lower() in ("default", "reset", "默认"):
+            BACKENDS_FILE.unlink(missing_ok=True)
+        else:
+            value = spoken_backends(value)
+            value = BACKEND_PRESETS.get(value, value)
+            check_run_key("codex_backends", value)
+            BACKENDS_FILE.parent.mkdir(parents=True, exist_ok=True)
+            BACKENDS_FILE.write_text(value + "\n", encoding="utf-8")
+    saved = saved_backends()
+    names = {"subscription": "subscription", "api": "API"}
+    order = saved or DEFAULT_CODEX_BACKENDS
+    print(f"codex_backends {order} ({' → '.join(names[n] for n in order.split(','))}; "
+          f"{'set in ' + str(BACKENDS_FILE) if saved else 'default'})")
+
+
+MODEL_NICE ={"gpt-6-astra": "GPT-6-Astra", "gpt-6.1-sol": "GPT-6.1-Sol", "gpt-6-sol": "GPT-6-Sol", "gpt-6-luna": "GPT-6-Luna",
               "sonnet": "Claude Sonnet 5.5", "opus": "Claude Opus 5.5", "fable": "Claude Fable 5.1", "haiku": "Claude Haiku 5.5"}
 
 
@@ -784,7 +821,7 @@ def cmd_set(a) -> None:
             raise SystemExit(f"expected key=value, got {kv}")
         k, v = (x.strip() for x in kv.split("=", 1))
         if k == "codex_backends":
-            v = ",".join(SPOKEN.get(n.strip().lower(), n.strip().lower()) for n in v.split(","))
+            v = spoken_backends(v)
         pairs.append((k, SPOKEN_PROFILES.get(v.lower(), v) if k == "profile" else v))
     for k, v in pairs:
         check_run_key(k, v)
@@ -3250,6 +3287,8 @@ def main() -> None:
     p.add_argument("--at")
     p = parser("note", cmd_note); p.add_argument("section", choices=["parked", "decision", "next", "now"])
     p.add_argument("text"); p.add_argument("--add", action="store_true", help="now: add a bullet instead of replacing the section")
+    p = parser("backends", cmd_backends, directory=False, help="this PC's Codex backend order for every project")
+    p.add_argument("order", nargs="?", help="subscription or api (put first), a comma list, or default; omit to show")
     p = parser("set", cmd_set); p.add_argument("pairs", nargs="*")
     p.add_argument("--status", choices=STATUSES); p.add_argument("--reason")
     p = parser("status", cmd_status, "report", "overview", directory="?", description="Without dir: scan immediate child folders of MARATHON_REPOS_ROOT if set; otherwise ~/repos and the current folder\'s parent. MARATHON_OVERVIEW_GLOBS overrides these patterns (os.pathsep-separated). Include registered projects in either case.")
