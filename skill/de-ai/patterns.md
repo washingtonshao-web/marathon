@@ -44,4 +44,16 @@ Missing sections the audience expects (the plenary studies at a congress talk; a
 - Write for the ear: ≤25 characters per spoken clause; one number per sentence, two at most; round numbers ("约七成") unless the exact value is the point; never read a list of values ("零点二七、零点二九、零点四一") or letters ("P D L 一": say "PD-L1" as people say it).
 - The voice is chosen by listening, not by a reviewer reading a transcript: make 2–4 samples of the same paragraph (compare at least two voices of the kind the film needs), and pick the most natural one yourself (name it in the report). It is scored with the narration like any other item; no sign-off from the user is needed.
 - Subtitles follow the spoken words, not the written page.
+- A script can be clean sentence by sentence and still sound machine-made; the shape gives it away (`--spoken` counts these). One talk's films: 0 sentence tells, and the owner heard them as "非常 AI 化".
+
+| Pattern | Looks like | Do instead |
+|---|---|---|
+| Route signs | "先说代价……再说药从哪里来……最后说检测" | Open with the view; let each point start with its subject |
+| Ending restates the opening | Opening lists toxicity / evidence / finding patients; ending lists them again | End on the one thing to watch or do next |
+| Attribution chain | "作者认为……点评的专家提醒……讨论嘉宾建议……" in every paragraph | One quoted voice where it carries weight; the rest in our words |
+| No view of our own | Every judgment is someone else's | Say what we think ("我们觉得…，因为…"); the talk exists for that |
+| Footnote read aloud | "五项对十二项，数的是…；九成五和百分之七，说的是…" | Denominators and definitions go on screen or the site; say the number in a sentence that already makes the base clear |
+| Unnamed drug or trial | "一个肺癌靶向组合"; "乳腺癌里一个新的 ADC" | Name it as people say it ("赛沃替尼加奥希替尼") |
+| Closing hedge | "会议上的比例不能代表全球全年" | Put the one limit where the claim is made, or drop it |
+| Fixes stacked as caveats | Each review round added a clarifying clause | After accuracy fixes, re-read the whole script aloud and rewrite it as speech |
 

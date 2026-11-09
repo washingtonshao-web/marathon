@@ -25,7 +25,10 @@ It is advisory evidence, not a verdict: a reviewer applies it unless they quote 
 false positives, and a clean count with a dull voice still fails the read-aloud test. Thresholds were set on
 one case (a talk site, owner score 60-65) and must be recalibrated as more user scores arrive.
 --spoken adds two ear checks per sentence: number runs (3+ numbers read aloud in one sentence, e.g.
-"百分之八十四、六十九、八十五", Chinese integers included) and long sentences (over 40 CJK characters).
+"百分之八十四、六十九、八十五", Chinese integers included) and long sentences (over 40 CJK characters), plus the
+structure of a script (patterns.md D): route signs (先说…再说…最后说, 2+), attribution chains ("作者认为 / 专家提醒",
+from the third), no view of our own (3+ attributions, no 我们认为/觉得/判断), footnotes read aloud (数的是, 说的是,
+分母, 口径), closing hedges (不能代表, 仅供参考), unnamed drugs (一个新的 ADC) and an ending that restates the opening.
 Exit code 0 always.
 """
 import argparse
@@ -57,6 +60,19 @@ TELLS = {
 NUMBER = (r"\d+(?:\.\d+)?%?|百分之[零一二两三四五六七八九十百点]+|[零一二两三四五六七八九十百]+点[零一二三四五六七八九]+"
           r"|[零一二两三四五六七八九十百千万]{2,}")
 SPOKEN = {"number_run": lambda s: len(re.findall(NUMBER, s)) >= 3, "long_sentence": lambda s: len(CJK.findall(s)) > 40}
+# Spoken structure (--spoken): what makes a cleanly worded script still sound machine-made aloud (the films of one
+# talk: 0 sentence tells, yet the user heard "非常 AI 化").
+ROUTE = r"(?:先|再|接着|然后|最后)来?(?:说|讲|看)"  # 先说…再说…最后说: a table of contents read aloud
+ATTRIB = (r"作者(?:认为|据此|指出|表示|提出)|研究者(?:认为|指出)"
+          r"|(?:专家|嘉宾|讨论者|点评人)[^，。；\n]{0,6}?(?:认为|指出|提醒|建议|强调|说)")
+VIEW = r"我们(?:认为|觉得|判断|看好|的判断|的看法)|我认为|我觉得|在我们看来"
+SPOKEN_TELLS = {
+    "footnote_read": r"(?:数|算|统计|指|说)的是|分母|口径",  # a denominator note or definition read out
+    "hedge_close": r"不能代表|仅供参考|并不意味着|有待(?:进一步)?验证|还需要?更多",
+    "vague_name": r"一[个款种](?:新的?)?[^，。；、\d]{0,6}?(?:组合|新药|ADC|疗法|方案)",  # name the drug or trial
+}
+STOP_BIGRAMS = {"我们", "这个", "一个", "不是", "就是", "这些", "他们", "可以", "没有", "什么", "如果", "因为", "所以",
+                "还是", "已经", "自己", "以及", "能不", "不能", "这次", "会上"}
 # Stock frames that are fine once and read as a template when repeated (one talk site: 不等于 ×11, N 件事 ×5).
 REPEATS = {
     "不等于": r"不等于",
@@ -108,7 +124,30 @@ def spoken_hits(text: str) -> dict:
             if sent.strip() and test(sent):
                 found[k].append(Hit(pos, pos + len(sent)))
         pos += len(sent)
+    route = list(re.finditer(ROUTE, text))
+    found["route_signs"] = route if len(route) >= 2 else []
+    attrib = list(re.finditer(ATTRIB, text))
+    found["attribution_chain"] = attrib[2:]  # one or two "作者认为" are fine; every one from the third is a tell
+    found["no_own_view"] = attrib[:1] if len(attrib) >= 3 and not re.search(VIEW, text) else []
+    for k, p in SPOKEN_TELLS.items():
+        found[k] = list(re.finditer(p, text))
+    found["echo_close"] = echo_close(text)
     return found
+
+
+def echo_close(text: str) -> list:
+    """The last two sentences restate the opening: 6+ shared content bigrams with the first 30% of the script."""
+    sents = [s for s in re.split(r"(?<=[。！？!?])", text) if CJK.search(s)]
+    if len(sents) < 8:
+        return []
+    def grams(s):
+        return {a + b for a, b in zip(s, s[1:]) if CJK.match(a) and CJK.match(b)} - STOP_BIGRAMS
+    head = text[:int(len(text) * 0.3)]
+    tail = "".join(sents[-2:])
+    if len(grams(head) & grams(tail)) < 6:
+        return []
+    start = text.rfind(sents[-2].strip())
+    return [Hit(start, start + len(sents[-2].strip()))]
 
 
 def scan(path: Path, root: Path, skip: list, n_ex: int, spoken: bool = False) -> dict:
