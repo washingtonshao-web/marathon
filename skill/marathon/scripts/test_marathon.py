@@ -954,9 +954,9 @@ m("set-status", BC, "paused", "--reason", "test done")
 spec = importlib.util.spec_from_file_location("cw_test", HERE / "codex_worker.py")
 CW = importlib.util.module_from_spec(spec); spec.loader.exec_module(CW)
 calls = iter([(False, "CPU 90% > 75%", {}), (True, "under limits", {})])
-fake_gpu = SimpleNamespace(check=lambda kind: next(calls))
+fake_limits = SimpleNamespace(check=lambda kind: next(calls))
 buf = io.StringIO()
-with patch.dict(sys.modules, {"gpu": fake_gpu}), patch.object(CW.time, "sleep", lambda s: None), redirect_stdout(buf):
+with patch.dict(sys.modules, {"load_limits": fake_limits}), patch.object(CW.time, "sleep", lambda s: None), redirect_stdout(buf):
     CW.wait_for_room("W7")
 check("LG: a new Codex worker waits while the PC is over the limits", "W7 WAIT" in buf.getvalue() and "CPU 90%" in buf.getvalue(), buf.getvalue())
 

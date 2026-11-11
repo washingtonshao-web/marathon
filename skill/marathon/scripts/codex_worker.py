@@ -611,18 +611,19 @@ def record(d: Path, wid: str, a, r: dict, add: bool = False) -> None:
 
 
 def wait_for_room(wid: str, limit_min: float = 10) -> None:
-    """A new worker waits while this PC is over gpu.md's CPU or RAM limits; nothing running is stopped. After limit_min it
-    starts anyway and says so. MARATHON_NO_LOAD_GATE=1 skips the wait (tests, or the user's explicit go-ahead)."""
+    """An optional load gate: when a load_limits.py next to this script has check(kind) -> (ok, why, details), a new
+    worker waits while it reports the PC as too busy; nothing running is stopped. After limit_min it starts anyway and
+    says so. Without the file there is no wait. MARATHON_NO_LOAD_GATE=1 skips the wait (tests, or the user's go-ahead)."""
     if os.environ.get("MARATHON_NO_LOAD_GATE") == "1":
         return
     try:
-        import gpu  # noqa: E402  (same folder)
+        import load_limits  # noqa: E402  (same folder, optional)
     except Exception:
         return
     t0, said = time.time(), False
     while True:
         try:
-            ok, why, _ = gpu.check("cpu")
+            ok, why, _ = load_limits.check("cpu")
         except Exception:
             return
         if ok:
@@ -631,7 +632,7 @@ def wait_for_room(wid: str, limit_min: float = 10) -> None:
             print(f"{wid} starting after {limit_min:g} min over the load limits ({why})", flush=True)
             return
         if not said:
-            print(f"{wid} WAIT: this PC is over the load limits ({why}); the worker starts when it drops (gpu.md)", flush=True)
+            print(f"{wid} WAIT: this PC is over the load limits ({why}); the worker starts when it drops", flush=True)
             said = True
         time.sleep(15)
 

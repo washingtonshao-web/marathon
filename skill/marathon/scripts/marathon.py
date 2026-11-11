@@ -978,19 +978,14 @@ def charter_pass_total(d: Path) -> float | None:
 
 
 def pc_load() -> str:
-    """CPU and RAM now, from gpu.py's cached reading (gpu.md limits); empty when unavailable."""
+    """This PC's load in one line from an optional load_limits.py next to this script (its describe()); empty without it."""
     try:
-        spec = importlib.util.spec_from_file_location("marathon_gpu", Path(__file__).resolve().parent / "gpu.py")
+        spec = importlib.util.spec_from_file_location("marathon_load_limits", Path(__file__).resolve().parent / "load_limits.py")
         g = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(g)
-        r = g.load_json(g.READING, {})
-        if not 0 <= time.time() - r.get("at", 0) < 300:  # no recent cached reading: CPU and RAM only (fast)
-            r = dict(zip(("cpu", "ram"), g.cpu_ram())) | {"idle_min": g.input_idle_min()}
-        lim = g.LIMITS[g.tier_of(g.activity_mode(r.get("idle_min")), r.get("others_gpu"))]
+        return str(g.describe() or "")
     except Exception:
         return ""
-    parts = [f"{label} {r[k]:.0f}% (limit {lim[k]}%)" for k, label in (("cpu", "CPU"), ("ram", "RAM")) if r.get(k) is not None]
-    return " · ".join(parts)
 
 
 def stale_workers(d: Path, minutes: float = 30) -> list[str]:
