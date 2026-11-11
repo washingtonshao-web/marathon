@@ -37,7 +37,7 @@ Progress ████████████░░░░░░░░ 58%
 Targets  14 / 22 met
 Score    73.5 → 76.5 → 77.0   pass 75
 Workers  3 running · GPT-6.1-Sol high
-Gate     Opus 5.5 xhigh + GPT-6-Astra high
+Gate     Fable 5.2 high + GPT-6-Astra high
 Next     inventory walk · UI audit</pre>
       <figcaption>Simplified from a real business-system run (57-hour budget, 47.9 h used). Ask “progress” at any time for a board like this plus the lead's own assessment.</figcaption>
     </figure>
@@ -58,13 +58,13 @@ Next     inventory walk · UI audit</pre>
           <g class="m-flow__step m-flow__step--lead"><rect x="10" y="40" width="170" height="110" rx="6"/><text x="95" y="78">1 Kickoff</text><text x="95" y="104" class="s">≤5 questions, defaults</text><text x="95" y="124" class="s">preselected · targets set</text></g>
           <g class="m-flow__step"><rect x="210" y="40" width="170" height="110" rx="6"/><text x="295" y="78">2 Dispatch</text><text x="295" y="104" class="s">short briefs to parallel</text><text x="295" y="124" class="s">Codex or Claude workers</text></g>
           <g class="m-flow__step"><rect x="410" y="40" width="170" height="110" rx="6"/><text x="495" y="78">3 Report</text><text x="495" y="104" class="s">each worker files a</text><text x="495" y="124" class="s">≤300-word summary</text></g>
-          <g class="m-flow__step"><rect x="610" y="40" width="170" height="110" rx="6"/><text x="695" y="78">4 Gate</text><text x="695" y="104" class="s">Opus + Astra score the</text><text x="695" y="124" class="s">same frozen commit</text></g>
+          <g class="m-flow__step"><rect x="610" y="40" width="170" height="110" rx="6"/><text x="695" y="78">4 Gate</text><text x="695" y="104" class="s">Fable + Astra score the</text><text x="695" y="124" class="s">same frozen commit</text></g>
           <g class="m-flow__step m-flow__step--end"><rect x="810" y="40" width="180" height="110" rx="6"/><text x="900" y="78">5 Fix or ship</text><text x="900" y="104" class="s">below target: next wave</text><text x="900" y="124" class="s">passed: commit, deploy</text></g>
           <path d="M180 95H205" class="m-flow__line" marker-end="url(#ar)"/><path d="M380 95H405" class="m-flow__line" marker-end="url(#ar)"/><path d="M580 95H605" class="m-flow__line" marker-end="url(#ar)"/><path d="M780 95H805" class="m-flow__line" marker-end="url(#ar)"/>
           <path d="M880 150V205H295V155" class="m-flow__line m-flow__line--back" marker-end="url(#ar)"/>
           <text x="590" y="228" class="m-flow__note">not there yet: the lead plans the next wave from the reviewers' biggest gaps</text>
         </svg>
-        <ol class="m-flow-list"><li><b>1 Kickoff</b><span>At most five questions, defaults preselected; targets set</span></li><li><b>2 Dispatch</b><span>Short briefs to parallel Codex or Claude workers</span></li><li><b>3 Report</b><span>Each worker files a summary of 300 words or less</span></li><li><b>4 Gate</b><span>Opus and Astra score the same frozen commit</span></li><li><b>5 Fix or ship</b><span>Below target: plan the next wave from the biggest gaps. Passed: commit and deploy</span></li></ol>
+        <ol class="m-flow-list"><li><b>1 Kickoff</b><span>At most five questions, defaults preselected; targets set</span></li><li><b>2 Dispatch</b><span>Short briefs to parallel Codex or Claude workers</span></li><li><b>3 Report</b><span>Each worker files a summary of 300 words or less</span></li><li><b>4 Gate</b><span>Fable and Astra score the same frozen commit</span></li><li><b>5 Fix or ship</b><span>Below target: plan the next wave from the biggest gaps. Passed: commit and deploy</span></li></ol>
         <figcaption>The lead only decides. When its context passes 300k tokens it hands over to a fresh lead through STATE.md, so a run can last days.</figcaption>
       </figure>
     </section>
@@ -75,7 +75,7 @@ Next     inventory walk · UI audit</pre>
         <div class="m-feat"><h3>Asks once, then works</h3><p>At most five questions at kickoff, each with a default already selected. Answer with one click, or walk away: after 10 minutes it starts on the defaults.</p></div>
         <div class="m-feat"><h3>Done means you would use it</h3><p>The charter fixes a benchmark, numeric targets and a pass mark, but the score is only the floor: done means neither reviewer lists a serious problem and both would use the result as is.</p></div>
         <div class="m-feat"><h3>Parallel workers</h3><p>Several bounded workers at a time (four in the default balanced mode) write code, research, run tests or polish pages. Each returns a short summary; full reports go to files.</p></div>
-        <div class="m-feat"><h3>Two-model review gate</h3><p>Claude Opus and GPT-6-Astra grade the same frozen commit independently. Big disagreements are ruled on with evidence, not averaged away.</p></div>
+        <div class="m-feat"><h3>Two-model review gate</h3><p>Claude Fable 5.2 and GPT-6-Astra grade the same frozen commit independently. Big disagreements are ruled on with evidence, not averaged away.</p></div>
         <div class="m-feat"><h3>Never needs “continue”</h3><p>A stop hook keeps the run going until a stop rule holds: target met, three rounds without real gains, budget used, or something only you can do.</p></div>
         <div class="m-feat"><h3>Survives long contexts</h3><p>Progress lives in STATE.md, not in memory. A fresh lead takes over at a quiet point and picks up exactly where the last one stopped.</p></div>
         <div class="m-feat"><h3>Counts the cost</h3><p>Every worker gets a ledger row. <code>marathon.py usage</code> prices Claude tokens by type, so you see where the money goes.</p></div>
@@ -91,12 +91,12 @@ Next     inventory walk · UI audit</pre>
         <tbody>
           <tr><td>Lead</td><td colspan="2">The session you talk to: Claude Opus in Claude Code, or your model in Codex</td></tr>
           <tr><td>Workers</td><td data-label="Codex workers (default)">GPT-6.1-Sol high → GPT-6-Astra high → Claude Sonnet</td><td data-label="All Claude">Claude Sonnet → Claude Opus</td></tr>
-          <tr><td>Review gate</td><td data-label="Codex workers (default)">Opus xhigh + Astra high, every round</td><td data-label="All Claude">Opus every round, Astra added at the final gate</td></tr>
-          <tr><td>Whose quota</td><td data-label="Codex workers (default)">Workers on your ChatGPT/Codex plan or your own API endpoint; lead and Opus on Claude</td><td data-label="All Claude">Almost everything on Claude</td></tr>
+          <tr><td>Review gate</td><td data-label="Codex workers (default)">Fable 5.2 high + Astra high, every round</td><td data-label="All Claude">Fable every round, Astra added at the final gate</td></tr>
+          <tr><td>Whose quota</td><td data-label="Codex workers (default)">Workers on your ChatGPT/Codex plan or your own API endpoint; lead and Fable on Claude</td><td data-label="All Claude">Almost everything on Claude</td></tr>
           <tr><td>Pick it when</td><td data-label="Codex workers (default)">Most long projects</td><td data-label="All Claude">No Codex, or the task needs Claude-only tools</td></tr>
         </tbody>
       </table></div>
-      <p class="k-prose m-small">Switch any time by saying so (“workers to Astra”, “switch to all Claude”); it takes effect from the next worker. Biology topics can use Sonnet + Astra as the gate when Opus declines the subject.</p>
+      <p class="k-prose m-small">Switch any time by saying so (“workers to Astra”, “switch to all Claude”); it takes effect from the next worker. Biology topics can use Sonnet + Astra as the gate when the Claude reviewer declines the subject.</p>
     </section>
 
     <section class="k-section" id="results">

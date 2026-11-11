@@ -82,7 +82,7 @@
 | 环节 | 模型或工具 |
 |---|---|
 | 写剧本 | 当前会话：Claude Code 或 Codex |
-| 事实核查、画面审查 | 另一个模型：GPT-6-Astra 或全新的 Claude Opus |
+| 事实核查、画面审查 | 另一个模型：GPT-6-Astra 或全新的 Claude Fable 5.2 |
 | 画画 | gpt-image-2.5（有图像 API 时），否则用 Codex 内置画图走 ChatGPT 订阅，约 70 秒一张 |
 | 画面动起来 | Google Flow 图生视频，4 秒，订阅额度 |
 | 景深视差 | Depth Anything V2，本地运行，有 NVIDIA 显卡更快 |

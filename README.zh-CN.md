@@ -12,7 +12,7 @@ Progress ████████████░░░░░░░░ 58%
 Targets  14 / 22 met
 Score    73.5 → 76.5 → 77.0   pass 75
 Workers  3 running · GPT-6.1-Sol high
-Gate     Opus 5.5 xhigh + GPT-6-Astra high
+Gate     Fable 5.2 high + GPT-6-Astra high
 ```
 <sub>根据一次真实业务系统项目的状态面板简化（预算 57 小时，已用 47.9 小时）。</sub>
 
@@ -32,7 +32,7 @@ Gate     Opus 5.5 xhigh + GPT-6-Astra high
 - **做完 = 你愿意直接用。** 开工前就定好对标对象、数字目标和及格线，但分数只是最低要求：两位评审都没有严重或重要问题、都说会直接拿去用，才算做完。
 - **早一点给你看方向。** 预算用到 15–20% 时发一个预览，只问方向对不对；你不回，它就按推荐继续做。
 - **并行 worker。** 同时派多个 worker（默认 balanced 模式最多 4 个）写代码、做研究、测试、打磨；每个交回一段简短总结（≤300 个英文单词），完整报告存成文件。
-- **双模型评审闸门。** Claude Opus 和 GPT-6-Astra 独立给同一个冻结版本打分；分歧大时按证据裁决。每份评审先列同事会注意到的问题，按严重程度排；游戏、网站和工具，评审要先上手用一遍再打分。
+- **双模型评审闸门。** Claude Fable 5.2 和 GPT-6-Astra 独立给同一个冻结版本打分（评审和主导的 Opus 不是同一个模型）；分歧大时按证据裁决。每份评审先列同事会注意到的问题，按严重程度排；游戏、网站和工具，评审要先上手用一遍再打分。
 - **不用说"继续"。** 停止 hook 让它一直跑，直到满足停止条件。
 - **不怕上下文变长。** 状态存在 `STATE.md`；上下文超过 300k 时，在空档换新 lead 接班，停止 hook 会提醒它。
 - **花费算得清。** 每个 worker 一行账，Claude 花费按 token 类型计价。
@@ -44,8 +44,8 @@ Gate     Opus 5.5 xhigh + GPT-6-Astra high
 | | Codex worker 模式（默认） | 全 Claude |
 |---|---|---|
 | worker | GPT-6.1-Sol high → GPT-6-Astra high → Claude Sonnet | Claude Sonnet → Claude Opus |
-| 评审闸门 | 每轮 Opus xhigh + Astra high | 每轮 Opus，最终轮加 Astra |
-| 额度 | worker 用你的 ChatGPT/Codex 订阅或自己的 API；lead 和 Opus 用 Claude | 几乎全部用 Claude |
+| 评审闸门 | 每轮 Fable 5.2 high + Astra high | 每轮 Fable，最终轮加 Astra |
+| 额度 | worker 用你的 ChatGPT/Codex 订阅或自己的 API；lead 和 Fable 用 Claude | 几乎全部用 Claude |
 
 随时一句话就能换（"worker 换成 Astra"、"改成全 Claude"）。
 

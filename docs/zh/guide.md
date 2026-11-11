@@ -51,8 +51,8 @@
 |---|---|---|
 | lead | 你对话的会话 | 你对话的会话 |
 | worker | GPT-6.1-Sol high → GPT-6-Astra high → Claude Sonnet | Claude Sonnet → Claude Opus |
-| 评审闸门 | 每轮 Claude Opus xhigh + GPT-6-Astra high | 每轮 Opus，最终轮再加 Astra |
-| 额度 | worker 用你的 ChatGPT/Codex 订阅或 API；lead 和 Opus 用 Claude | 几乎全部用 Claude |
+| 评审闸门 | 每轮 Claude Fable 5.2 high + GPT-6-Astra high | 每轮 Fable，最终轮再加 Astra |
+| 额度 | worker 用你的 ChatGPT/Codex 订阅或 API；lead 和 Fable 用 Claude | 几乎全部用 Claude |
 
 随时用一句话就能改："worker 换成 Astra"、"改成全 Claude"、"闸门用 Sonnet 加 Astra"。从下一个 worker 开始生效。实测把 worker 换成 Codex 后，每活跃小时的 Claude 花费少了 59–72%。
 
@@ -60,7 +60,7 @@
 
 ## 评审闸门
 
-每一轮由两位没有参与构建的评审，按章程给同一个冻结版本独立打分：Claude Opus 和 GPT-6-Astra。Astra 每轮都全面审。为了省钱，Opus 在第 1 轮、之后每 3 轮一次和最终轮全面审，其他轮只审改动的部分，其余项沿用上一次的分数。
+每一轮由两位没有参与构建的评审，按章程给同一个冻结版本独立打分：Claude Fable 5.2 和 GPT-6-Astra（需要时仍可指定 Opus 评审）。Astra 每轮都全面审。为了省钱，Fable 在第 1 轮、之后每 3 轮一次和最终轮全面审，其他轮只审改动的部分，其余项沿用上一次的分数。
 
 两位分歧很大时（某一项差 3 分、总分差 10 分，或者严重问题只有一方报了），`marathon.py score` 会停在 **ADJUDICATE**。lead 必须逐条用证据（测试、复现的 bug、截图）裁决，这一轮才算数。最终轮一定要两个模型都完整审过。
 

@@ -51,8 +51,8 @@ Ask "progress" (or "进度") at any time for a short report: a status board, the
 |---|---|---|
 | Lead | The session you talk to | The session you talk to |
 | Workers | GPT-6.1-Sol high → GPT-6-Astra high → Claude Sonnet | Claude Sonnet → Claude Opus |
-| Review gate | Claude Opus xhigh + GPT-6-Astra high every round | Opus every round, Astra added at the final gate |
-| Quota | Workers on your ChatGPT/Codex plan or API; lead and Opus on Claude | Almost all on Claude |
+| Review gate | Claude Fable 5.2 high + GPT-6-Astra high every round | Fable every round, Astra added at the final gate |
+| Quota | Workers on your ChatGPT/Codex plan or API; lead and Fable on Claude | Almost all on Claude |
 
 Change at any time in plain words: "workers to Astra", "switch to all Claude", "gate Sonnet plus Astra". Changes apply from the next worker. On measured runs, moving workers to Codex cut Claude spend per active hour by 59–72%.
 
@@ -60,7 +60,7 @@ The fallback order is used only when a worker cannot start (sign-in expired, quo
 
 ## The review gate
 
-Every round, two reviewers who did not build anything score the same frozen commit against the charter: Claude Opus and GPT-6-Astra. Astra reviews everything every round. To save cost, Opus reviews in full on round 1, every third round and the final round, and reviews only what changed in between, carrying its earlier scores for the rest.
+Every round, two reviewers who did not build anything score the same frozen commit against the charter: Claude Fable 5.2 and GPT-6-Astra (Opus gates remain available on request). Astra reviews everything every round. To save cost, Fable reviews in full on round 1, every third round and the final round, and reviews only what changed in between, carrying its earlier scores for the rest.
 
 When the two disagree a lot (a key 3 points apart, totals 10 apart, or a critical issue seen by only one), `marathon.py score` stops with **ADJUDICATE**. The lead must rule on each point with evidence (a test, a reproduced bug, a screenshot) before the round counts. The final gate always needs a full review from both models.
 

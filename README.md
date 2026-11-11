@@ -12,7 +12,7 @@ Progress ████████████░░░░░░░░ 58%
 Targets  14 / 22 met
 Score    73.5 → 76.5 → 77.0   pass 75
 Workers  3 running · GPT-6.1-Sol high
-Gate     Opus 5.5 xhigh + GPT-6-Astra high
+Gate     Fable 5.2 high + GPT-6-Astra high
 ```
 <sub>Simplified from the status board of a real business-system run (57-hour budget, 47.9 h used).</sub>
 
@@ -32,7 +32,7 @@ Costs are priced from the runs' own transcripts by token type; Codex ran on a su
 - **Done means you would use it.** Benchmark, numeric targets and a pass mark are fixed before work starts, but the score is only the floor: a run is done when neither reviewer lists a critical or major problem and both say they would use the result as is.
 - **An early look at the direction.** At 15–20% of the budget you get a preview and one question; if you don't answer, it keeps going.
 - **Parallel workers.** Several bounded workers (four at a time in the default balanced mode) write code, research, test and polish; each returns a ≤300-word summary, full reports go to files.
-- **Two-model review gate.** Claude Opus and GPT-6-Astra score the same frozen commit independently; big disagreements are ruled on with evidence. Each review starts with the problems a colleague would notice, worst first, and reviewers use games, sites and tools hands-on before they score.
+- **Two-model review gate.** Claude Fable 5.2 and GPT-6-Astra score the same frozen commit independently (the reviewer is a different model from the Opus lead); big disagreements are ruled on with evidence. Each review starts with the problems a colleague would notice, worst first, and reviewers use games, sites and tools hands-on before they score.
 - **Never needs "continue".** A stop hook keeps the run going until a stop rule holds.
 - **Survives long contexts.** State lives in `STATE.md`; a fresh lead takes over at a quiet point past 300k tokens; the stop hook reminds the lead when it is time.
 - **Counts the cost.** A ledger row per worker and Claude spend priced by token type.
@@ -44,8 +44,8 @@ Costs are priced from the runs' own transcripts by token type; Codex ran on a su
 | | Codex workers (default) | All Claude |
 |---|---|---|
 | Workers | GPT-6.1-Sol high → GPT-6-Astra high → Claude Sonnet | Claude Sonnet → Claude Opus |
-| Review gate | Opus xhigh + Astra high every round | Opus every round, Astra at the final gate |
-| Quota | Workers on your ChatGPT/Codex plan or your own API; lead and Opus on Claude | Almost all on Claude |
+| Review gate | Fable 5.2 high + Astra high every round | Fable every round, Astra at the final gate |
+| Quota | Workers on your ChatGPT/Codex plan or your own API; lead and Fable on Claude | Almost all on Claude |
 
 Switch any time in plain words ("workers to Astra", "switch to all Claude").
 
