@@ -1,6 +1,6 @@
 ---
 name: de-ai
-description: "去AI味: on demand, find and rewrite machine-sounding prose (Chinese or English) in a page, site, report, slides, subtitles or narration script so it reads like a colleague wrote it, with before/after numbers. Use only when asked by name or intent: 去AI味, 去 AI 味, AI 味太重, 太像 AI 写的, 说人话, 改成人话, 读起来像机器, humanize, humanizer, de-AI, deslop, ai_tells. Not needed for routine writing; Marathon gates run its script without loading this skill."
+description: "去AI味: on request, rewrite machine-sounding prose (Chinese or English) with before/after numbers. Only for 去AI味, AI 味太重, 太像 AI 写的, 说人话, humanize, deslop. Not for routine writing; marathon gates run its script without loading this skill."
 ---
 
 # 去 AI 味 (de-ai)

@@ -49,5 +49,6 @@ Read the mode card, [codex](mode-codex.md) (default: GPT-6.1-Sol high workers, A
 | Game | [game](packs/game.md) / threejs-game-director |
 | Site / atlas / tool | [site](packs/site.md) / design + your deploy workflow |
 | Research / strategy | [research](packs/research.md) / research + design if installed; otherwise the lead dispatches research workers per research.md |
+| Film / animation | your video and QC tools; check generation credits before moving shots |
 
 [library.md](library.md): asset reuse. [commands](references/commands.md): CLI, tests and budgets. Historical lessons are not read by default.

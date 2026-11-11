@@ -64,7 +64,7 @@ def head(d):
     return subprocess.run(["git", "-C", str(d), "rev-parse", "--short", "HEAD"], capture_output=True, text=True, stdin=subprocess.DEVNULL, encoding="utf-8").stdout.strip()
 
 
-def gate(d, rnd, scores, verdict="VERDICT: FAIL critical=0 major=0", name="gate.md", reviewer="opus", artifact=None, use="yes"):
+def gate(d, rnd, scores, verdict="VERDICT: FAIL critical=0 major=0", name="gate.md", reviewer="fable", artifact=None, use="yes"):
     p = d / "audits" / f"round-{rnd}"
     p.mkdir(parents=True, exist_ok=True)
     (p / name).write_text(f"report\n\nREVIEWER: {reviewer}\nARTIFACT: {artifact or head(d)}\nSCORES: {scores}\n{verdict}\n"
@@ -188,8 +188,8 @@ r = json.loads(REG.read_text(encoding="utf-8")); r["blocks"] = 5; r.pop("release
 out = m("status", P, "--full")
 check("status shows hours and auto-continue", "/12 h" in out and "auto-continue: armed" in out, out)
 
-# scoring (single-reviewer fixtures explicitly select the Opus gate)
-m("set", P, "gate=opus")
+# scoring (single-reviewer fixtures explicitly select the single Fable gate)
+m("set", P, "gate=fable")
 commit(P)
 out = m("score", P, "--from", gate(P, 1, "accuracy=9, coverage=9"), code=2)
 check("missing dimensions → INVALID", "missing dimensions" in out, out)
@@ -224,7 +224,7 @@ out = m("score", P, "--from", gate(P, 4, SITE9.replace("phone=9", "phone=7"), "V
 check("one dimension below floor → not met", "phone=7<8" in out and "TARGET MET" not in out, out)
 out = m("score", P, "--from", gate(P, 5, SITE9, "VERDICT: FAIL critical=1 major=0"))
 check("critical → not met", "TARGET MET" not in out, out)
-out = m("score", P, "--from", gate(P, 6, SITE9), "--from", gate(P, 6, SITE9.replace("speed=9", "speed=5"), name="gate-b.md", reviewer="opus-b"))
+out = m("score", P, "--from", gate(P, 6, SITE9), "--from", gate(P, 6, SITE9.replace("speed=9", "speed=5"), name="gate-b.md", reviewer="fable-b"))
 check("two reports merge by minimum", "speed=5<8" in out, out)
 out = m("score", P, "--carry-forward", "--round", "7", "--from", gate(P, 7, "phone=9.5", "VERDICT: PASS critical=0 major=0"))
 check("carry-forward re-gate of one key", "INVALID" not in out and "speed=5<8" in out, out)
@@ -238,7 +238,7 @@ commit(P)
 src = ["--from", gate(P, 8, SITE9, "VERDICT: PASS critical=0 major=0"),
        "--from", gate(P, 8, SITE9, "VERDICT: FAIL critical=1 major=0", name="astra.md", reviewer="astra")]
 out = m("score", P, "--final", *src, code=3)
-check("final: critical from Astra only → ADJUDICATE (the lead rules)", out.startswith("ADJUDICATE") and "critical: opus=0 vs astra=1" in out
+check("final: critical from Astra only → ADJUDICATE (the lead rules)", out.startswith("ADJUDICATE") and "critical: fable=0 vs astra=1" in out
       and "the lead rules" in out and "the lead (Opus" not in out, out)
 (P / "audits" / "adj-keep.md").write_text("CRITICAL = 1 because the crash reproduces on the release build (astra.md, step 3)\n", encoding="utf-8")
 out = m("score", P, "--final", *src, "--adjudication", "audits/adj-keep.md")
@@ -257,7 +257,7 @@ out = m("score", P, "--final", *src, "--adjudication", "audits/adj-short.md", co
 check("final: a ruling without a real reason → INVALID", "no CRITICAL ruling" in out, out)
 out = m("score", P, "--round", "9", "--from", gate(P, 9, SITE9), "--from",
         gate(P, 9, SITE9.replace("speed=9", "speed=5"), name="astra.md", reviewer="astra-high"), code=3)
-check("round: a key 4 points apart between Opus and Astra → ADJUDICATE", "key speed: opus=9 vs astra-high=5" in out, out)
+check("round: a key 4 points apart between Opus and Astra → ADJUDICATE", "key speed: fable=9 vs astra-high=5" in out, out)
 out = m("score", P, "--final", "--from", gate(P, 8, SITE9, "VERDICT: PASS critical=0 major=0"),
         "--from", gate(P, 8, SITE9, "VERDICT: PASS critical=0 major=0", name="astra.md", reviewer="astra"))
 check("final: both pass → FINAL PASS", out.strip().endswith("FINAL PASS"), out)
@@ -267,7 +267,7 @@ GAME = "core_loop={0}, visual_art={0}, ui_ux={0}, feel={0}, content={0}, perform
 for name, vals, want in (("p2", [6.0, 6.1, 6.2, 6.2], "PLATEAU"), ("p3", [6.0, 6.1, 6.2, 6.3], "CONTINUE")):
     Q = REPOS / name
     m("init", Q, "--type", "game", "--title", name)
-    m("set", Q, "gate=opus")
+    m("set", Q, "gate=fable")
     commit(Q)
     res = [m("score", Q, "--from", gate(Q, i, GAME.format(v))).strip().splitlines()[-1] for i, v in enumerate(vals, 1)]
     check(f"{','.join(f'{v*10:.0f}' for v in vals)} → {want}", res[-1] == want, res)
@@ -335,7 +335,7 @@ check("pace: rounds to pass, out of reach, reached", M.pace([70, 71, 72], 85)[0]
       and M.pace([70], 85) is None and M.pace([60, 62, 64], 85)[1].startswith("keep going") and M.pace([70, 70.5, 71], 85)[1].startswith("plateau"))
 check("bookkeeping files are not 'uncommitted product'", "uncommitted: none" in out, out)
 check("report: reviews and models block after the visual block", "REVIEWS AND MODELS" in out
-      and re.search(r"Reviews   R\d+ Opus \d+\.\d", out) and re.search(r"Gate R1\S* +Opus", out) and "Workers  " in out, out)
+      and re.search(r"Reviews   R\d+ Fable \d+\.\d", out) and re.search(r"Gate R1\S* +Fable", out) and "Workers  " in out, out)
 # reviewer scores beside the merged score, and which models ran
 RV = TMP / "rv"
 (RV / "audits" / "round-1").mkdir(parents=True)
@@ -499,7 +499,7 @@ check("config --profiles offers two new-run modes", all(k in out for k in ("clau
 out = m("set", Q, "profile=全 Claude")
 st = (Q / "STATE.md").read_text(encoding="utf-8")
 check("profile=全 Claude sets the Claude bundle and prints the config", "profile: claude" in st and "workers: sonnet" in st and
-      "gate: opus" in st and "Run config · All Claude" in out and "Claude Sonnet 5.5" in out, out)
+      "gate: fable" in st and "Run config · All Claude" in out and "Claude Sonnet 5.5" in out, out)
 check("a run-config change is logged under Decisions", "run config: " in st)
 out = m("set", Q, "profile=codex", "gate=opus", "summary_words=500")
 check("keys named with a profile override its bundle", "Gate requested: Opus 5.5 xhigh (final adds Astra)" in out and "≤500 words" in out and "GPT-6-Astra high" in out, out)
@@ -511,8 +511,8 @@ r = 21
 G9 = GAME.format(9)
 out = m("score", Q, "--round", r, "--from", gate(Q, r, G9), "--astra-pending")
 st = (Q / "STATE.md").read_text(encoding="utf-8")
-check("--astra-pending scores with Opus alone and marks Astra as out", "astra_pending: round-21" in st and
-      "opus+astra-pending" in (Q / "audits" / "scores.csv").read_text(encoding="utf-8") and "Astra for round-21 still out" in m("status", Q), out + st[-300:])
+check("--astra-pending scores with Fable alone and marks Astra as out", "astra_pending: round-21" in st and
+      "fable+astra-pending" in (Q / "audits" / "scores.csv").read_text(encoding="utf-8") and "Astra for round-21 still out" in m("status", Q), out + st[-300:])
 out = m("score", Q, "--late", "--round", r, "--from", gate(Q, r, G9), "--from",
         gate(Q, r, G9, "VERDICT: FAIL critical=1 major=0", name="astra.md", reviewer="astra-high"), code=3)
 check("late Astra with a critical only it saw → ADJUDICATE", out.startswith("ADJUDICATE"), out)
@@ -581,7 +581,7 @@ check("A1: clean final with bookkeeping edits and symbolic artifact passes", out
 # A11: actual gate policy, known families, explicit missing-family explanations.
 one = ["--from", gate(G, 2, SITE9)]
 out = m("score", G, "--round", 2, *one, code=2)
-check("A11: default dual gate rejects Opus alone", "required reviewer models (opus/claude, astra/gpt): gpt" in out, out)
+check("A11: default dual gate rejects Fable alone", "required reviewer models (fable/claude, astra/gpt): gpt" in out, out)
 for reason in ("short", "          "):
     out = m("score", G, "--round", 2, *one, "--missing-reason", reason, code=2)
     check("A11: missing reason needs 10 non-padding characters", "at least 10" in out, out)
@@ -592,9 +592,11 @@ check("A11: missing family and reason are recorded", "+missing:gpt" in score_row
 # R2 A-R1/O-R11: the requested models, not broad provider families, fill gate slots.
 for policy in ("astra", "opus+opus"):
     out = m("set", G, f"gate={policy}", code=1)
-    check(f"R2 O-R11: removed gate {policy} rejected", "gate must be one of opus+astra, opus" in out, out)
-for policy, labels, expected in (("opus", ["opus-5.5"], 0), ("opus", ["sonnet-5.5"], 2),
-                                 ("opus", ["fable-5.1"], 2), ("opus", ["opus+astra"], 2), ("opus+astra", ["opus-5.5", "astra-high"], 0),
+    check(f"R2 O-R11: removed gate {policy} rejected", "gate must be one of fable+astra, fable, sonnet+astra, opus+astra, opus" in out, out)
+for policy, labels, expected in (("fable", ["fable-5.2"], 0), ("fable", ["opus-5.5"], 2), ("fable", ["fable-5.1-high"], 2),
+                                 ("fable", ["fable-5-1"], 2), ("fable", ["fable-high"], 0), ("fable", ["fable-5.10"], 0), ("fable+astra", ["fable-5.2-high", "astra-high"], 0),
+                                 ("fable+astra", ["opus-5.5", "astra-high"], 2), ("opus", ["opus-5.5"], 0), ("opus", ["sonnet-5.5"], 2),
+                                 ("opus", ["fable-5.2"], 2), ("opus", ["opus+astra"], 2), ("opus+astra", ["opus-5.5", "astra-high"], 0),
                                  ("opus+astra", ["sonnet", "sol61"], 2), ("opus+astra", ["opus", "sol"], 2),
                                  ("opus+astra", ["opus", "luna"], 2), ("opus+astra", ["sonnet", "astra"], 2)):
     m("set", G, f"gate={policy}")
@@ -603,16 +605,17 @@ for policy, labels, expected in (("opus", ["opus-5.5"], 0), ("opus", ["sonnet-5.
         args += ["--from", gate(G, 2, SITE9, name=f"model-{i}.md", reviewer=label)]
     out = m("score", G, "--round", 2, *args, code=expected)
     check(f"R2 A-R1: gate {policy} labels {labels}", ("INVALID" in out) == bool(expected), out)
-m("set", G, "gate=opus+astra")
+m("set", G, "gate=fable+astra")
 out = m("score", G, "--round", 2, "--from", gate(G, 2, SITE9, reviewer="astra"), "--astra-pending", code=2)
 check("A11: pending cannot waive missing Claude", "only when Astra is the missing" in out, out)
 out = m("score", G, "--round", 2, *pair(G, 2), "--astra-pending", code=2)
 check("A11: pending rejected when Astra already present", "only when Astra is the missing" in out, out)
-for labels, reason_args, expected in ((["opus", "opus-second"], [], 2), (["opus"], ["--missing-reason", reason], 2),
+for labels, reason_args, expected in ((["fable", "fable-second"], [], 2), (["fable"], ["--missing-reason", reason], 2),
                                       (["astra", "gpt-6-sol"], ["--missing-reason", reason], 2),
                                       (["sonnet", "sonnet-second"], ["--missing-reason", reason], 2),
-                                      (["opus", "sonnet-second"], ["--missing-reason", reason], 2),
-                                      (["opus", "opus-second"], ["--missing-reason", reason], 0)):
+                                      (["fable", "sonnet-second"], ["--missing-reason", reason], 2),
+                                      (["fable", "opus-second"], ["--missing-reason", reason], 2),
+                                      (["fable", "fable-second"], ["--missing-reason", reason], 0)):
     args = []
     for i, label in enumerate(labels):
         args += ["--from", gate(G, 3, SITE9, name=f"r{i}.md", reviewer=label)]
@@ -676,16 +679,16 @@ for content in (None, "REVIEWER: opus-fresh\n", "CONFIRM: dismiss\n", "REVIEWER:
 
 # A12: all Claude/GPT pairs contribute, including criticals seen only by later reviewers.
 reports = [{"reviewer": name, "dims": {"quality": value}, "critical": critical}
-           for name, value, critical in (("opus-first", 9, 0), ("opus-second", 5, 1), ("astra-first", 9, 0), ("gpt-second", 9, 0))]
+           for name, value, critical in (("fable-first", 9, 0), ("fable-second", 5, 1), ("astra-first", 9, 0), ("gpt-second", 9, 0))]
 splits = M.disagreements(reports, {"quality": 100})
-check("A12: second Claude compared with each GPT report", len(splits) == 6 and all(any(f"opus-second" in s and gpt in s
+check("A12: second Claude compared with each GPT report", len(splits) == 6 and all(any(f"fable-second" in s and gpt in s
       for s in splits if s.startswith(kind)) for gpt in ("astra-first", "gpt-second") for kind in ("key", "total", "critical")), splits)
 args = []
 for i, report in enumerate(reports):
     args += ["--from", gate(G, 7, SITE9.replace("speed=9", f"speed={report['dims']['quality']}"),
                            f"VERDICT: FAIL critical={report['critical']} major=0", name=f"pair{i}.md", reviewer=report["reviewer"])]
 out = m("score", G, "--round", 7, *args, code=3)
-check("A12: CLI reports each pair's disputes", "opus-second=5 vs astra-first=9" in out and "opus-second=5 vs gpt-second=9" in out, out)
+check("A12: CLI reports each pair's disputes", "fable-second=5 vs astra-first=9" in out and "fable-second=5 vs gpt-second=9" in out, out)
 
 # A9/A10: multiple pending rounds, new HEAD, current rubric, stable row order/final-last.
 L = REPOS / "late-gates"
@@ -805,11 +808,11 @@ check("R2 A-R2: nonpassing regular round cannot be reused", "passing regular rou
 m("score", U, "--round", 3, "--from", gate(U, 3, SITE9), "--astra-pending")
 out = m("score", U, "--final", "--reuse-round", 3, code=2)
 check("R2 A-R2: pending round cannot be reused", "complete dual round" in out, out)
-m("set", U, "gate=opus")
+m("set", U, "gate=fable")
 m("score", U, "--round", 4, "--from", gate(U, 4, SITE9))
 out = m("score", U, "--final", "--reuse-round", 4, code=2)
 check("R2 A-R2: single-model round cannot be reused", "required reviewer models" in out, out)
-m("set", U, "gate=opus+astra")
+m("set", U, "gate=fable+astra")
 m("score", U, "--round", 5, *pair(U, 5))
 # Older rows without the rubric snapshot cannot establish that it stayed unchanged.
 rows = score_rows(U); rows[-2].pop("rubric", None)
@@ -1103,8 +1106,8 @@ row = next(r for r in score_rows(E) if r["round"] == "2")
 carried = json.loads(row["carried"])
 check("AB-A: focused Opus plus full Astra compares only shared fresh keys", "ADJUDICATE" not in out and "coverage=5<8" in out, out)
 check("AB-A: each omitted Opus key carries conservatively despite full Astra", json.loads(row["dims"])["speed"] == 9 and
-      carried["round"] == "1" and carried["reviewers"]["opus"]["speed"] == 9 and "accuracy" not in carried["reviewers"]["opus"] and
-      "carried from round 1 for opus:" in out, (row, out))
+      carried["round"] == "1" and carried["reviewers"]["fable"]["speed"] == 9 and "accuracy" not in carried["reviewers"]["fable"] and
+      "carried from round 1 for fable:" in out, (row, out))
 out = m("score", E, "--late", "--round", 2, *focused, "--carry-forward")
 check("AB-A: late carry uses earlier round, never itself or a future round", "carried from round 1" in out, out)
 out = m("score", E, "--round", 2, *focused, code=2)
@@ -1164,7 +1167,7 @@ _big.write_text("x" * (M.LESSONS_MAX + 1), encoding="utf-8")
 check("lessons_check flags an over-cap file", M.lessons_check(_big)[0] is False and "move dated notes" in M.lessons_check(_big)[1])
 # Lead-read core stays within the agreed character budget, and required prompt scopes remain explicit.
 core = ("SKILL.md", "workers.md", "gate.md")
-base_chars = 15700  # public lead-core budget baseline (1.2.0 full-sentence rewrite)
+base_chars = 15830  # public lead-core budget baseline (1.2.0 rewrite; +130 for the 2026-11-12 Fable gate text)
 now_chars = sum(len((HERE.parent / name).read_text(encoding="utf-8")) for name in core)
 check("AB: lead-read core grows at most 1500 characters", now_chars - base_chars <= 1500, now_chars - base_chars)
 prompt = (HERE.parent / "references/gate-prompt.md").read_text(encoding="utf-8")
@@ -1258,7 +1261,7 @@ def s2_score(d=S2, code=0, **kwargs):
     return output.getvalue()
 
 
-def s2_reports(rnd, left="a=9, b=9", right="a=9, b=9", claude="opus", d=S2, major=0):
+def s2_reports(rnd, left="a=9, b=9", right="a=9, b=9", claude="fable", d=S2, major=0):
     return [gate(d, rnd, left, reviewer=claude, name="claude.md"),
             gate(d, rnd, right, reviewer="astra", name="astra.md", verdict=f"VERDICT: PASS critical=0 major={major}")]
 
@@ -1275,22 +1278,22 @@ def s2_row(label, expected):
 
 
 s2_score(round=1, src=s2_reports(1))
-s2_row("full baseline", s2_expected(1, "opus+astra"))
+s2_row("full baseline", s2_expected(1, "fable+astra"))
 s2_score(round=2, src=s2_reports(2, "a=9, b=8.5")[:1], astra_pending=True)
-s2_row("--astra-pending", s2_expected(2, "opus+astra-pending", "88.0", dims='{"a": 9.0, "b": 8.5}'))
+s2_row("--astra-pending", s2_expected(2, "fable+astra-pending", "88.0", dims='{"a": 9.0, "b": 8.5}'))
 check("S2 pending marker", M.read_state(S2)[0]["astra_pending"] == "round-2")
 s2_score(round=2, src=s2_reports(2, "a=9, b=8.5", "a=8.5, b=8.5"), late=True)
-s2_row("--late", s2_expected(2, "opus+astra+late", "85.0", dims='{"a": 8.5, "b": 8.5}'))
+s2_row("--late", s2_expected(2, "fable+astra+late", "85.0", dims='{"a": 8.5, "b": 8.5}'))
 check("S2 late replaces row and clears marker", len(score_rows(S2)) == 2 and M.read_state(S2)[0]["astra_pending"] == "")
 s2_score(round=3, src=s2_reports(3))
 s2_score(round=4, src=s2_reports(4, "a=8.5"), carry_forward=True)
-s2_row("--carry-forward", s2_expected(4, "opus+astra", "87.0", dims='{"b": 9.0, "a": 8.5}',
-       carried='{"round": "3", "reviewers": {"opus": {"b": 9.0}}}'))
+s2_row("--carry-forward", s2_expected(4, "fable+astra", "87.0", dims='{"b": 9.0, "a": 8.5}',
+       carried='{"round": "3", "reviewers": {"fable": {"b": 9.0}}}'))
 s2_score(final=True, reuse_round=1)
-s2_row("--reuse-round", s2_expected("final", "opus+astra+reuse-round:1", result="FINAL PASS"))
-second = gate(S2, 6, "a=9.5, b=9.5", reviewer="opus-second", name="second.md", verdict="VERDICT: PASS critical=0 major=3")
+s2_row("--reuse-round", s2_expected("final", "fable+astra+reuse-round:1", result="FINAL PASS"))
+second = gate(S2, 6, "a=9.5, b=9.5", reviewer="fable-second", name="second.md", verdict="VERDICT: PASS critical=0 major=3")
 s2_score(final=True, src=[s2_reports(6)[0], second], missing_reason="Astra unavailable: fixture failure")
-s2_row("--missing-reason", s2_expected("final", "opus+opus-second+missing:gpt", result="FINAL FAIL", major="3"))
+s2_row("--missing-reason", s2_expected("final", "fable+fable-second+missing:gpt", result="FINAL FAIL", major="3"))
 check("DN: a major problem keeps an otherwise passing final from FINAL PASS", score_rows(S2)[-1]["result"] == "FINAL FAIL")
 disputed = s2_reports(5, "a=6, b=9")
 before = (S2 / "audits/scores.csv").read_bytes()
@@ -1299,13 +1302,13 @@ check("S2 dispute leaves rows intact", (S2 / "audits/scores.csv").read_bytes() =
 ruling = S2 / "audits/ruling.md"
 ruling.write_text("KEY a = 8.5 because tests/fixture.py reproduces the accepted result.\n", encoding="utf-8")
 s2_score(round=5, src=disputed, adjudication=str(ruling))
-s2_row("--adjudication", s2_expected(5, "opus+astra+lead-ruling", "87.0", dims='{"a": 8.5, "b": 9.0}'))
+s2_row("--adjudication", s2_expected(5, "fable+astra+lead-ruling", "87.0", dims='{"a": 8.5, "b": 9.0}'))
 
 
 # S2 profiles: reads do not migrate files; every state writer pins missing legacy keys once.
 check("S2 profiles retain classic, claude, codex only", set(M.PROFILES) == {"classic", "claude", "codex"})
 legacy_keys = dict(profile="classic", lead_style="hands-on", rotate_at="0", workers="opus", worker_fallback="sonnet",
-                   gate="opus", astra_wait="0", summary_words="300")
+                   gate="fable", astra_wait="0", summary_words="300")
 for explicit in ({}, {"workers": "sonnet", "worker_fallback": "", "gate": "opus+astra", "summary_words": "500"}):
     legacy = REPOS / ("s2-legacy-override" if explicit else "s2-legacy")
     legacy.mkdir()
@@ -1318,7 +1321,7 @@ for explicit in ({}, {"workers": "sonnet", "worker_fallback": "", "gate": "opus+
     with redirect_stdout(output):
         M.write_state(legacy, fm, body)
     saved, body = M.read_state(legacy)
-    notice = "legacy run pinned to classic (no behaviour change)"
+    notice = "legacy run pinned to classic (gate is now fable: Claude reviews moved to Fable 5.2 high on 2026-11-12)"
     check("S2 legacy explicit keys win and behaviour stays", all(saved[k] == v for k, v in (legacy_keys | explicit).items()) and
           effective == {k: M.run_value(saved, k) for k in legacy_keys}, saved)
     check("S2 legacy emits one notice and one Decisions entry", output.getvalue().splitlines() == [notice] and
@@ -1349,15 +1352,20 @@ with patch.dict(os.environ, {"CODEX_THREAD_ID": "fixture"}):
     check("S2 Codex host requests Codex lead without a fourth mode", "requested GPT-6-Astra high (Codex)" in "\n".join(M.run_config({"profile": "codex"})))
 
 # S2 Sonnet substitutes for the Claude slot, including full/focused and final/fallback rules.
-check("S2 gate choices", M.GATES == ("opus+astra", "opus", "sonnet+astra"))
+check("S2 gate choices", M.GATES == ("fable+astra", "fable", "sonnet+astra", "opus+astra", "opus") and M.DEFAULT_GATE == "fable+astra")
 out = m("set", S2, "gate=sonnet+astra")
 check("S2 set accepts and describes Sonnet gate", "Sonnet 5.5" in out and M.read_state(S2)[0]["gate"] == "sonnet+astra", out)
-for setting in ("opus", "opus+astra", "sonnet+astra"):
+for setting in ("fable", "fable+astra", "opus", "opus+astra", "sonnet+astra"):
     for final in (False, True):
         problems = M.gate_reviewers({"gate": setting}, ["sonnet-5.5", "astra-high"], final, False, "")[1]
         check(f"S2 Sonnet labels only under own gate {setting}/{final}", bool(problems) == (setting != "sonnet+astra"), problems)
-        problems = M.gate_reviewers({"gate": setting}, ["opus-5.5", "astra-high"], final, False, "")[1]
-        check(f"S2 required Claude model {setting}/{final}", bool(problems) == (setting == "sonnet+astra"), problems)
+        claude = setting.split("+")[0]
+        own = {"fable": "fable-5.2-high", "opus": "opus-5.5", "sonnet": "sonnet-5.5"}[claude]
+        problems = M.gate_reviewers({"gate": setting}, [own, "astra-high"], final, False, "")[1]
+        check(f"S2 required Claude model {setting}/{final}", not problems, problems)
+        other = "opus-5.5" if claude == "fable" else "fable-5.2-high"
+        problems = M.gate_reviewers({"gate": setting}, [other, "astra-high"], final, False, "")[1]
+        check(f"S2 another Claude model does not fill gate {setting}/{final}", bool(problems), problems)
     if setting != "sonnet+astra":
         check("S8 legacy missing reason accepts supplemental Sonnet label", not M.gate_reviewers({"gate": setting}, ["sonnet", "astra"],
               False, False, "fixture technical failure")[1])

@@ -356,7 +356,7 @@ for wid, setting, model, expected in (
     out = worker(wid, "--class", "gate", "--model", model, mode="limit")
     models = [c["args"][c["args"].index("-m") + 1] for c in calls()[before:]]
     check(f"{wid}: only authorized forward Codex models, exhausted status failed", models == expected
-          and "ASTRA UNAVAILABLE:" in out and "Normal round: score with --astra-pending; final gate: two configured Claude reviewers (Opus, or Sonnet under sonnet+astra) with --missing-reason." in out
+          and "ASTRA UNAVAILABLE:" in out and "Normal round: score with --astra-pending; final gate: two configured Claude reviewers (the gate's Claude model: Fable by default) with --missing-reason." in out
           and "FALLBACK sonnet" not in out and row(wid)["status"] == "failed" and row(wid)["ended"], out)
 run("marathon.py", "set", P, "worker_fallback=sol61,sonnet")
 for flags, message in (([], "--class"), (["--class", "gate"], "--sha is required"),

@@ -144,7 +144,7 @@ class LedgerTests(unittest.TestCase):
         out = self.probe("""
 r = dict(input=1000000, output=1000000, cache_read=1000000, w5=1000000, w1h=1000000)
 for model, pin, pout, pread in [('opus-5-5',4,20,.2), ('sonnet-5-5',2,10,.2), ('opus-5',5,25,.5),
-                                ('sonnet-5',2,10,.2), ('fable-5-1',10,50,.25), ('haiku-5-5',.1,.5,.01)]:
+                                ('sonnet-5',2,10,.2), ('fable-5-2',8,40,.2), ('fable-5-1',10,50,.25), ('haiku-5-5',.1,.5,.01)]:
     c = m.usage_cost('claude-' + model, r)
     assert c == dict(input=pin, output=pout, cache_read=pread, cache_write=3.25*pin), c
 assert all(v is None for v in m.usage_cost('unpriced-model', r).values())
@@ -376,7 +376,7 @@ print('permission retries passed')
         self.assertEqual(chain(), ["sol61", "astra", "sonnet"])
         config = self.cli("config", self.project)
         self.assertIn("GPT-6.1-Sol high → fallback GPT-6-Astra high → Claude Sonnet 5.5", config)
-        self.assertIn("Opus 5.5 xhigh + Astra high", config)
+        self.assertIn("Fable 5.2 high + Astra high", config)
         self.cli("set", self.project, "workers=astra")
         self.assertEqual(chain(), ["astra", "sonnet"])
         self.state(workers="astra", worker_fallback="sol61,sonnet")

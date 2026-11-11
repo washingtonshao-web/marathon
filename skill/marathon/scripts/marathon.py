@@ -99,17 +99,26 @@ BACKENDS_FILE = HOME / "codex-backends.txt"
 BACKEND_PRESETS = {"subscription": "subscription,api", "api": "api,subscription"}
 DEFAULT_WORKERS, DEFAULT_FALLBACK = "sol61", "astra,sonnet"
 # Run modes the user picks by name (2026-10-19). A profile sets a bundle of keys; any key can be changed afterwards.
-GATES = ("opus+astra", "opus", "sonnet+astra")
+# 2026-11-12: Claude reviews moved to Fable 5.2 high (the owner works with Opus 5.5, so the reviewer is another model).
+# The opus gates stay valid as an explicit choice; every default and profile uses fable.
+GATES = ("fable+astra", "fable", "sonnet+astra", "opus+astra", "opus")
+DEFAULT_GATE = "fable+astra"
+GATE_REVIEWER = {"fable": "Fable 5.2 high", "opus": "Opus 5.5 xhigh", "sonnet": "Sonnet 5.5 xhigh"}
+
+
+def gate_claude(gate: str) -> str:
+    """The Claude reviewer model of a gate setting: 'fable' / 'opus' / 'sonnet'."""
+    return (gate or DEFAULT_GATE).split("+")[0]
 PROFILES = {
-    "classic": {"name": "Classic", "about": "as before 2026-10-19: the lead also does hands-on work; Opus/Sonnet workers; Opus gate, Astra at the final gate. Uses the most Claude quota: workers are ~89% of Claude tokens in a run",
+    "classic": {"name": "Classic", "about": "the lead also does hands-on work; Opus/Sonnet workers; Fable gate (Opus until 2026-11-12), Astra at the final gate. Uses the most Claude quota: workers are ~89% of Claude tokens in a run",
                 "keys": {"profile": "classic", "lead_style": "hands-on", "rotate_at": "0", "workers": "opus", "worker_fallback": "sonnet",
-                         "gate": "opus", "astra_wait": "0", "summary_words": "300"}},
-    "claude": {"name": "All Claude", "about": "Claude only: thin rotating Opus lead, Sonnet workers, Opus gate. Workers stay on Claude quota (~89% of a run's Claude tokens)",
+                         "gate": "fable", "astra_wait": "0", "summary_words": "300"}},
+    "claude": {"name": "All Claude", "about": "Claude only: thin rotating Opus lead, Sonnet workers, Fable gate. Workers stay on Claude quota (~89% of a run's Claude tokens)",
                "keys": {"profile": "claude", "lead_style": "thin", "rotate_at": "300", "workers": "sonnet", "worker_fallback": "opus",
-                        "gate": "opus", "astra_wait": "0", "summary_words": "300"}},
-    "codex": {"name": "Codex workers", "about": "default: thin rotating lead (Claude or Codex host), GPT-6.1-Sol high workers (Astra optional), Opus + Astra gate",
+                        "gate": "fable", "astra_wait": "0", "summary_words": "300"}},
+    "codex": {"name": "Codex workers", "about": "default: thin rotating lead (Claude or Codex host), GPT-6.1-Sol high workers (Astra optional), Fable + Astra gate",
               "keys": {"profile": "codex", "lead_style": "thin", "rotate_at": "300", "workers": "sol61", "worker_fallback": "astra,sonnet",
-                       "gate": "opus+astra", "astra_wait": "10", "summary_words": "300"}},
+                       "gate": "fable+astra", "astra_wait": "10", "summary_words": "300"}},
 }
 DEFAULT_PROFILE = "codex"
 LEGACY_PROFILE = "classic"
@@ -166,7 +175,7 @@ def cmd_backends(a) -> None:
 
 
 MODEL_NICE ={"gpt-6-astra": "GPT-6-Astra", "gpt-6.1-sol": "GPT-6.1-Sol", "gpt-6-sol": "GPT-6-Sol", "gpt-6-luna": "GPT-6-Luna",
-              "sonnet": "Claude Sonnet 5.5", "opus": "Claude Opus 5.5", "fable": "Claude Fable 5.1", "haiku": "Claude Haiku 5.5"}
+              "sonnet": "Claude Sonnet 5.5", "opus": "Claude Opus 5.5", "fable": "Claude Fable 5.2", "haiku": "Claude Haiku 5.5"}
 
 
 def describe_model(name: str) -> str:
@@ -201,10 +210,9 @@ def run_config(fm: dict, short: bool = False) -> list[str]:
     thin = run_value(fm, "lead_style") != "hands-on"
     rot = int(run_value(fm, "rotate_at") or 0)
     rot = 300 if rot == 150 else rot  # the old default counts as 300k (stop_hook.py)
-    gate = run_value(fm, "gate") or "opus+astra"
+    gate = run_value(fm, "gate") or DEFAULT_GATE
     wait = int(run_value(fm, "astra_wait") or 0)
-    gate_txt = {"opus+astra": "Opus 5.5 xhigh + Astra high", "opus": "Opus 5.5 xhigh (final adds Astra)",
-                "sonnet+astra": "Sonnet 5.5 xhigh + Astra high"}[gate]
+    gate_txt = GATE_REVIEWER[gate_claude(gate)] + (" + Astra high" if gate.endswith("+astra") else " (final adds Astra)")
     if gate.endswith("+astra"):
         gate_txt += f"; Astra late after {wait} min → go on with {gate.split('+')[0].title()}, merge Astra when it lands" if wait else "; always wait for Astra"
     workers = describe_model(chain[0]) + (" → fallback " + " → ".join(describe_model(n) for n in chain[1:]) if chain[1:] else "")
@@ -347,7 +355,7 @@ def write_state(d: Path, fm: dict, body: str) -> None:
     if "profile" not in fm:
         for k, v in PROFILES[LEGACY_PROFILE]["keys"].items():
             fm.setdefault(k, v)
-        notice = "legacy run pinned to classic (no behaviour change)"
+        notice = "legacy run pinned to classic (gate is now fable: Claude reviews moved to Fable 5.2 high on 2026-11-12)"
         body = add_to_section(body, "Decisions", f"{iso()} · {notice}")
         print(notice)
     state_transaction(d, "---\n" + "\n".join(f"{k}: {v}" for k, v in fm.items() if k not in DERIVED) + "\n---\n" + body)
@@ -1961,14 +1969,18 @@ def resolve_artifact(d: Path, ref: str) -> str | None:
 
 
 def gate_reviewers(fm: dict, reviewers: list[str], final: bool, pending: bool, reason: str) -> tuple[str, list[str]]:
-    gate = run_value(fm, "gate") or "opus+astra"
-    claude = "sonnet" if gate == "sonnet+astra" else "opus"
+    gate = run_value(fm, "gate") or DEFAULT_GATE
+    claude = gate_claude(gate)
     gate = f"{claude}+astra" if final else gate
     families = {f: {r for r in reviewers if r.lower().startswith(model)}
                 for f, model in (("claude", claude), ("gpt", "astra"))}
     required = {"claude": 1} | ({"gpt": 1} if gate.endswith("+astra") else {})
     missing = [f for f, n in required.items() if len(families[f]) < n]
     problems = ["reviewer labels must not contain +"] if any("+" in r for r in reviewers) else []
+    # The fable gate means Fable 5.2 or later: an older Fable label (fable-5, fable-5.1) does not fill the slot.
+    old_fable = [r for r in reviewers if (v := re.match(r"fable[-_]?(\d+)(?:[.-](\d+))?(?![\d.])", r.lower())) and (int(v[1]), int(v[2] or 0)) < (5, 2)]
+    if claude == "fable" and old_fable:
+        problems.append(f"{', '.join(old_fable)}: the fable gate needs Fable 5.2 or later (the bare 'fable' alias on an older CLI is Fable 5.1; use claude-fable-5-2)")
     if reason and len(reason.strip()) < 10:
         problems.append("--missing-reason must contain at least 10 characters")
     if pending and (final or missing != ["gpt"] or not families["claude"]):
@@ -2184,8 +2196,8 @@ def cmd_score(a) -> None:
                 problems.append(f"{rp.name}: Format: {rules['format']} needs share_ready re-scored every round (Pass A)")
             if (r["reviewer"] or "").startswith("astra"):
                 problems.append(f"{rp.name}: Astra must score every key every round")
-            if (r["reviewer"] or "").startswith("sonnet" if run_value(fm, "gate") == "sonnet+astra" else "opus") and int(rnd) % 3 == 0:
-                problems.append(f"{rp.name}: {(r['reviewer'] or 'opus').split('-')[0].title()} must score every key every third regular round")
+            if (r["reviewer"] or "").startswith(gate_claude(run_value(fm, "gate"))) and int(rnd) % 3 == 0:
+                problems.append(f"{rp.name}: {(r['reviewer'] or gate_claude(run_value(fm, 'gate'))).split('-')[0].title()} must score every key every third regular round")
             carried[r["reviewer"] or "?"] = {k: prev.get(k) for k in weights if k in omitted}
             if any(prev.get(k) is None and k not in rules["na"] for k in omitted):
                 problems.append(f"{rp.name}: carried n/a is no longer allowed by CHARTER")
@@ -2202,7 +2214,7 @@ def cmd_score(a) -> None:
     split = [] if problems else disagreements(reports, weights)
     if split or a.adjudication:
         if not a.adjudication:
-            print(f"ADJUDICATE\n{'Sonnet' if run_value(fm, 'gate') == 'sonnet+astra' else 'Opus'} and GPT disagree; the lead rules in audits/round-N/ADJUDICATION.md and reruns "
+            print(f"ADJUDICATE\n{gate_claude(run_value(fm, 'gate')).title()} and GPT disagree; the lead rules in audits/round-N/ADJUDICATION.md and reruns "
                   "score with --adjudication <file>:\n" + "\n".join("  " + s for s in split) +
                   "\nLines: 'KEY <key> = <score> because …', 'CRITICAL = <n> because …', 'MAJOR = <n> because …'. "
                   "Pick either reviewer's score or set your own; dismissing a finding needs a reason that cites evidence.")
@@ -2702,7 +2714,7 @@ def lead_sessions(fm: dict, include_current: bool = True) -> list[str]:
 USAGE_KEYS = ("msgs", "input", "cache_write", "cache_read", "output", "w5", "w1h")
 USAGE_TYPES = ("input", "cache_write", "cache_read", "output")
 USAGE_PRICES = {"opus-5-5": (4, 20, .20), "sonnet-5-5": (2, 10, .20), "opus-5": (5, 25, .50),
-                "sonnet-5": (2, 10, .20), "fable-5-1": (10, 50, .25), "haiku-5-5": (.10, .50, .01)}
+                "sonnet-5": (2, 10, .20), "fable-5-2": (8, 40, .20), "fable-5-1": (10, 50, .25), "haiku-5-5": (.10, .50, .01)}
 
 
 def transcript_usage(path: Path, since_utc: dt.datetime | None) -> dict:
@@ -3307,10 +3319,10 @@ def main() -> None:
     p.add_argument("--final", action="store_true"); p.add_argument("--round", type=int)
     p.add_argument("--artifact"); p.add_argument("--reuse-round", type=int, help="final: reuse a passing dual round on the same clean SHA and rubric")
     p.add_argument("--carry-forward", action="store_true", help="focused re-gate: each reviewer's omitted keys carry the previous scored round; Astra stays full")
-    p.add_argument("--adjudication", help="the lead's ruling file when Opus and GPT disagree (score prints ADJUDICATE)")
-    p.add_argument("--astra-pending", action="store_true", help="Astra is past astra_wait: score with Opus now, merge Astra later")
+    p.add_argument("--adjudication", help="the lead's ruling file when the Claude reviewer and GPT disagree (score prints ADJUDICATE)")
+    p.add_argument("--astra-pending", action="store_true", help="Astra is past astra_wait: score with the Claude reviewer now, merge Astra later")
     p.add_argument("--late", action="store_true", help="rescore an earlier round with the late Astra report added (replaces that row)")
-    p.add_argument("--missing-reason", help="reason (at least 10 characters) for a missing reviewer model; final requires two configured Claude reviewers (Opus, or Sonnet under sonnet+astra)")
+    p.add_argument("--missing-reason", help="reason (at least 10 characters) for a missing reviewer model; final requires two configured Claude reviewers (the gate's Claude model: Fable by default, Opus or Sonnet when the gate names them)")
     p = parser("evidence", cmd_evidence, help="prepare changes and a pre-gate evidence index")
     p.add_argument("--round", type=int, required=True)
     p = parser("preflight", cmd_preflight, "logins", directory=False); p.add_argument("--type", default="site", choices=["game", "site", "research"])

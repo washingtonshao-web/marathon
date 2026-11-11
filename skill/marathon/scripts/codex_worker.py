@@ -692,7 +692,7 @@ def cmd_run(a) -> None:
     try:
         rd = snapshot(d, a.sha) if a.cls == "gate" else real_path(d)
         if a.cls == "gate":
-            print(f"{a.id} SNAPSHOT {rd} (share this folder with Opus)", flush=True)
+            print(f"{a.id} SNAPSHOT {rd} (share this folder with the Claude reviewer)", flush=True)
         prompt = brief + footer(d, rd, a.id, a.cls, a.read_only)
         for name in chain:
             agent, model, _ = m.resolve_model(name)
@@ -718,7 +718,7 @@ def cmd_run(a) -> None:
                   + (f" · after fallback from {'; '.join(tried)}" if tried else ""))
             return
         reason = ' '.join('; '.join(tried).split()) or 'no Codex model in the requested chain'
-        print(f"ASTRA UNAVAILABLE: {reason}. Normal round: score with --astra-pending; final gate: two configured Claude reviewers (Opus, or Sonnet under sonnet+astra) with --missing-reason."
+        print(f"ASTRA UNAVAILABLE: {reason}. Normal round: score with --astra-pending; final gate: two configured Claude reviewers (the gate's Claude model: Fable by default) with --missing-reason."
               if a.cls == "gate" else f"{a.id} FAILED: every model in the chain failed: {reason}")
     finally:
         alive.set()  # a running worker marks the project active every minute (marathon.py budget clock)
@@ -751,7 +751,7 @@ def cmd_steer(a) -> None:
     try:
         rd = snapshot(d, a.sha) if a.cls == "gate" else real_path(d)
         if a.cls == "gate":
-            print(f"{a.id} SNAPSHOT {rd} (share this folder with Opus)", flush=True)
+            print(f"{a.id} SNAPSHOT {rd} (share this folder with the Claude reviewer)", flush=True)
         r = attempt(d, rd, a.id, name, a.message + footer(d, rd, a.id, a.cls, a.read_only),
                     a, resume_thread=row["thread"])
         record(d, a.id, a, r, add=True)

@@ -1,26 +1,26 @@
 # Gate and stop
 
-A gate is an independent review of one committed version. Before it the hard checks pass and the candidate SHA is pinned. Fresh reviewers get that candidate, CHARTER, PROMPTS and the benchmark, and for reader-facing work [review-principles](references/review-principles.md). Gate settings: opus+astra (the codex default), opus (regular rounds Claude only, the final adds Astra) and sonnet+astra (propose it for biology). Reviewers the user names are always used; a mode never removes them.
+A gate is an independent review of one committed version. Before it the hard checks pass and the candidate SHA is pinned. Fresh reviewers get that candidate, CHARTER, PROMPTS and the benchmark, and for reader-facing work [review-principles](references/review-principles.md). Gate settings: fable+astra (the codex default), fable (regular rounds Claude only, the final adds Astra), sonnet+astra (propose it for biology); opus gates on request. Reviewers the user names are always used; a mode never removes them.
 
-The Claude reviewer is Opus 5.5 xhigh, or Sonnet 5.5 xhigh with sonnet+astra (labels and paths start opus* or sonnet*). Astra high reviews FULL every round. Claude reviews FULL in round 1, every third regular round, at the final gate and when the lead asks; otherwise FOCUSED.
+The Claude reviewer is Fable 5.2 high, Opus 5.5 xhigh or Sonnet 5.5 xhigh, per gate (labels and paths start fable*, opus* or sonnet*). Astra high reviews FULL every round. Claude reviews FULL in round 1, every third regular round, at the final gate and when the lead asks; otherwise FOCUSED.
 
-Ask for a review only when the last round's critical and major problems are fixed, or at least a solid batch of them: a gate after a small fix costs a full Opus and Astra round and adds little. `marathon.py status` shows the open problems and the commits since the last gate.
+Ask for a review only when the last round's critical and major problems are fixed, or at least a solid batch of them: a gate after a small fix costs a full Fable and Astra round and adds little. `marathon.py status` shows the open problems and the commits since the last gate.
 
 ## Launch and delivery
 
 Run `marathon.py evidence <dir> --round N`: an ops worker fills the evidence pack (checks, counts, screenshots, live checks) without editing or committing the candidate. Write the prompt from [gate-prompt](references/gate-prompt.md), give both reviewers the shared pack and the detached snapshot, and register Claude before Astra:
 
 ~~~text
-marathon.py worker <dir> GN-opus agent=claude model=opus effort=xhigh class=gate status=running note=sha=<full-sha>
+marathon.py worker <dir> GN-fable agent=claude model=fable effort=high class=gate status=running note=sha=<full-sha>
 codex_worker.py run <dir> --id GN-astra --brief audits/round-N/prompt.md --class gate --sha <full-sha> --model astra --minutes 45 --out audits/round-N/astra.md
 ~~~
 
-Use sonnet instead when it is configured; regular opus rounds need only Claude. Astra prints its snapshot folder (.tmp/gate/<sha7>/); share it with Claude. Freeze external inputs separately. Checks write only to .scratch/. Claude checks specific claims (about 80 tool calls focused, 150 full); Astra checks freely.
+Use sonnet/opus when configured; regular fable/opus rounds need only Claude. Astra prints its snapshot folder (.tmp/gate/<sha7>/); share it with Claude. Freeze external inputs separately. Checks write only to .scratch/. Claude checks specific claims (about 80 tool calls focused, 150 full); Astra checks freely.
 
-Claude writes one full audit to audits/round-N/opus.md (or sonnet.md) at the original project's absolute path and returns at most 300 words plus the five closing lines (REVIEWER, ARTIFACT, SCORES, VERDICT, USE). Astra returns the full audit, which the wrapper saves to --out. Never rewrite a review, and never let a reviewer start reviewers, commit or publish. Keep a native or bridge reviewer's invocation evidence and finish its ledger row. A gate on a new SHA removes snapshots no running reviewer uses.
+Claude writes one full audit to audits/round-N/fable.md (or opus.md / sonnet.md) at the original project's absolute path and returns at most 300 words plus the five closing lines (REVIEWER, ARTIFACT, SCORES, VERDICT, USE). Astra returns the full audit, which the wrapper saves to --out. Never rewrite a review, and never let a reviewer start reviewers, commit or publish. Keep a native or bridge reviewer's invocation evidence and finish its ledger row. A gate on a new SHA removes snapshots no running reviewer uses.
 
 ~~~text
-marathon.py score <dir> --round N --from audits/round-N/opus.md --from audits/round-N/astra.md
+marathon.py score <dir> --round N --from audits/round-N/fable.md --from audits/round-N/astra.md
 ~~~
 
 `score` merges the reports: the lower score per key and the higher problem counts. A split of 3 or more on a key, 10 or more on the total, or a critical problem only one reviewer found returns ADJUDICATE (exit 3); INVALID (exit 2) means a report or the evidence must be corrected.
