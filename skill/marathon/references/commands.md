@@ -23,6 +23,6 @@ Aliases preserve flags/side effects. Score compatibility spellings: --astra-pend
 
 ## Checks/budget
 
-Run each scripts/test_*.py and tools/test_package.py. Fake network/models; isolate MARATHON_CLAUDE_HOME, MARATHON_REPOS_ROOT and MARATHON_OVERVIEW_GLOBS in your project. Use your own sync workflow. Optional load gate: a load_limits.py next to marathon.py with check(kind) -> (ok, why, details) and describe() makes new Codex workers wait while the PC is busy; MARATHON_NO_LOAD_GATE=1 skips it.
+Run each scripts/test_*.py and tools/test_package.py. Fake network/models; isolate MARATHON_CLAUDE_HOME, MARATHON_REPOS_ROOT and MARATHON_OVERVIEW_GLOBS in your project. Use your own sync workflow. Optional load gate: a load_limits.py next to marathon.py with check(kind) -> (ok, why, details) and describe() makes new Codex workers wait while the PC is busy; MARATHON_NO_LOAD_GATE=1 skips it. A ready one ships as scripts/load_limits.example.py (whole-PC CPU and RAM at most 80%, MARATHON_LOAD_CAP to change; standard library only): copy it to load_limits.py to turn the gate on.
 
 Python text-mode characters: SKILL + workers + gate + intake + references/{commands,profiles,adjudication,rotation,codex-workers}.md + chosen mode card ≤32,000 (Claude lead); add references/codex.md ≤36,000 (Codex lead). Count either card; do not relocate required reading. lessons.md ≤3,000; archive not read by default.

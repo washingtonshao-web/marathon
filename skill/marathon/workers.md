@@ -6,7 +6,7 @@ A fix brief names the files to change and the problems to fix, quoting the revie
 
 Workers never commit, push or start reviewers. Only an ops worker performs a live operation its brief authorizes; this overrides the general shipping rules. Scratch goes to .tmp/<id>/ (harness cleanup per codex-workers.md); deliverables and evidence go to audits/ or .tmp/reports/. Leave unrelated integrations unused.
 
-Before any browser run `marathon.py lock <dir> browser --owner <id>`; if it is held, do other work. Close the browser and release with --release. The lease is per PC with a 30-minute TTL; renew with the same owner or --ttl MIN, and never steal a live lease. Your hardware limits still apply.
+To drive or measure a page in a browser, `marathon.py lock <dir> browser --owner <id>`; if held, do other work (research reads need no lease). Close it and release with --release. The lease is per PC with a 30-minute TTL; renew with the same owner or --ttl MIN, and never steal a live lease. Heavy jobs: one at a time.
 
 `marathon.py config <dir> --models` shows the STATE chain; new codex projects default to GPT-6.1-Sol high → GPT-6-Astra high → Claude Sonnet 5.5, and `set <dir> workers=astra` opts into Astra. [codex-workers](references/codex-workers.md) covers launches. Claude leads use native agents; Codex leads use the [bridge](references/codex.md). Steer weak output.
 
