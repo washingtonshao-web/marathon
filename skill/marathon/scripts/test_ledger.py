@@ -375,7 +375,7 @@ print('permission retries passed')
         chain = lambda: json.loads(self.probe(f"print(json.dumps(m.chain_from(m.read_state(Path({str(self.project)!r}))[0])))"))
         self.assertEqual(chain(), ["sol61", "astra", "sonnet"])
         config = self.cli("config", self.project)
-        self.assertIn("GPT-6.1-Sol high → fallback GPT-6-Astra high → Claude Sonnet 5.5", config)
+        self.assertIn("GPT-6.2-Sol high → fallback GPT-6.2-Astra high → Claude Sonnet 5.5", config)
         self.assertIn("Fable 5.2 high + Astra high", config)
         self.cli("set", self.project, "workers=astra")
         self.assertEqual(chain(), ["astra", "sonnet"])
@@ -505,7 +505,7 @@ for n, passed, defects in [(7,0,9), (8,5,0), (10,7,1), (10,6,0), (8,8,2)]:
     text = output(rows(n,passed,defects))
     assert all(h in text for h in ['runs','assessed','1st pass','defects/run','minutes','tokens']), text
     assert all(h not in text for h in ['KEEP CODEX','BEHIND','routing check','vs Opus']), text
-assert m.model_key({{'model':'astra-xhigh'}}) == 'gpt-6-astra/xhigh'
+assert m.model_key({{'model':'astra-xhigh'}}) == 'gpt-6.2-astra/xhigh'
 assert m.model_key({{'model':'gpt-6-astra'}}) == 'gpt-6-astra/unspecified'
 unknown = [dict(r, major='') for r in rows(8,0)]
 synthetic = [dict(r, note='bake-off case: result.json') for r in rows(8,0,9)]

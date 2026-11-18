@@ -29,8 +29,8 @@ worker 就是真正写代码、做调研、跑测试的那些 AI，每个只负�
 
 | | Codex worker 模式（默认） | 全 Claude 模式 |
 |---|---|---|
-| 主力 | GPT-6.1-Sol，effort high | Claude Sonnet 5.5 |
-| 第一备选 | GPT-6-Astra，effort high | Claude Opus 5.5 |
+| 主力 | GPT-6.2-Sol，effort high | Claude Sonnet 5.5 |
+| 第一备选 | GPT-6.2-Astra，effort high | Claude Opus 5.5 |
 | 第二备选 | Claude Sonnet 5.5 | — |
 | 花谁的额度 | 你的 ChatGPT/Codex 订阅，或你自己的 OpenAI 兼容 API | 几乎全部是 Claude |
 
@@ -49,7 +49,7 @@ worker 就是真正写代码、做调研、跑测试的那些 AI，每个只负�
 
 | 闸门组合 | 成员 | 什么时候用 |
 |---|---|---|
-| opus+astra（默认） | Claude Opus 5.5 xhigh + GPT-6-Astra high | 大多数项目 |
+| opus+astra（默认） | Claude Opus 5.5 xhigh + GPT-6.2-Astra high | 大多数项目 |
 | opus | 平时只有 Opus 5.5 xhigh，最终轮加上 Astra | 全 Claude 模式 |
 | sonnet+astra | Claude Sonnet 5.5 xhigh + Astra high | 生物类题目，Opus 的安全审查可能拒审时 |
 

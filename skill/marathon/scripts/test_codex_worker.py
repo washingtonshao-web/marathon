@@ -24,7 +24,7 @@ import csv, json, os, stat, subprocess, sys, time
 from pathlib import Path
 args = sys.argv[1:]
 mode = os.environ.get("FAKE_MODE", "ok")
-if mode == "timeout-stdin" and "gpt-6-astra" in args:
+if mode == "timeout-stdin" and "gpt-6.2-astra" in args:
     time.sleep(90)
 prompt = sys.stdin.read()
 out = args[args.index("-o") + 1] if "-o" in args else None
@@ -93,7 +93,7 @@ if mode == "hang-after-done":
     print(json.dumps({"type": "turn.completed", "usage": {"input_tokens": 10, "output_tokens": 2}}), flush=True)
     Path(out).write_text("DONE.\nall items met\n", encoding="utf-8")
     time.sleep(90)
-if mode == "limit" or (mode == "astra-limit" and model == "gpt-6-astra") or (mode == "sol-limit" and model == "gpt-6.1-sol"):
+if mode == "limit" or (mode == "astra-limit" and model == "gpt-6.2-astra") or (mode == "sol-limit" and model == "gpt-6.2-sol"):
     print(json.dumps({"type": "error", "message": "You've hit your usage limit."}))
     sys.exit(1)
 if mode in ("empty", "turn-only", "network"):
@@ -106,7 +106,7 @@ if mode == "fail-done":
     Path(out).write_text("DONE\nthis attempt actually failed\n", encoding="utf-8")
     sys.exit(1)
 if (mode.startswith("timeout") and mode != "timeout-stdin") or mode == "crash-tools":
-    if mode in ("timeout-empty", "timeout-change") and model != "gpt-6-astra":
+    if mode in ("timeout-empty", "timeout-change") and model != "gpt-6.2-astra":
         pass
     else:
         if mode in ("timeout-tools", "crash-tools", "timeout-child"):
@@ -128,7 +128,7 @@ if mode in ("recovered", "completed-no-status"):
 print(json.dumps({"type": "thread.started", "thread_id": "thr-" + model}))
 print(json.dumps({"type": "turn.completed", "usage": {"input_tokens": 1000, "cached_input_tokens": 800, "output_tokens": 50}}))
 if out:
-    message = ("DONE\n" + "Complete evidence. " * 400 + "\nREVIEWER: gpt-6-astra-high\nARTIFACT: abcdef\n"
+    message = ("DONE\n" + "Complete evidence. " * 400 + "\nREVIEWER: gpt-6.2-astra-high\nARTIFACT: abcdef\n"
                "SCORES: quality=8\nVERDICT: FAIL critical=1 major=2\n") if mode == "gate" else (
                mode.upper() + "\nneeds more work\n" if mode in ("partial", "failed") else "DONE\nall items met\n")
     if mode == "completed-no-status":
@@ -188,8 +188,8 @@ SNAPSHOT = P / ".tmp/gate" / SHA[:7]
 
 out = run("codex_worker.py", "run", P, "--id", "W1", "--brief", P / "brief.md", "--class", "build")
 rows = (P / "audits" / "workers.csv").read_text(encoding="utf-8")
-check("run: DONE line with model and tokens", out.startswith("W1 DONE sol61 (gpt-6.1-sol high)") and "summary" in out, out)
-check("run: ledger row with usage and thread", "W1," in rows and ",codex,gpt-6.1-sol,high,build,done," in rows and "thr-gpt-6.1-sol" in rows
+check("run: DONE line with model and tokens", out.startswith("W1 DONE sol61 (gpt-6.2-sol high)") and "summary" in out, out)
+check("run: ledger row with usage and thread", "W1," in rows and ",codex,gpt-6.2-sol,high,build,done," in rows and "thr-gpt-6.2-sol" in rows
       and ",1000,800,50," in rows, rows)
 call = json.loads((TMP / "calls.jsonl").read_text(encoding="utf-8").splitlines()[-1])
 check("run: full access, json, high effort, prompt footer names the project folder",
@@ -197,7 +197,7 @@ check("run: full access, json, high effort, prompt footer names the project fold
       and "The project folder is" in call["prompt"] and ".tmp/reports/W1.full.md" in call["prompt"], call)
 
 out = run("codex_worker.py", "run", P, "--id", "W2", "--brief", P / "brief.md", "--class", "test", mode="sol-limit")
-check("fallback: Sol usage limit → Astra does the job", "W2 DONE astra (gpt-6-astra high)" in out and "after fallback from sol61" in out, out)
+check("fallback: Sol usage limit → Astra does the job", "W2 DONE astra (gpt-6.2-astra high)" in out and "after fallback from sol61" in out, out)
 
 out = run("codex_worker.py", "run", P, "--id", "W3", "--brief", P / "brief.md", "--class", "build", mode="limit")
 check("fallback: Codex chain exhausted → FALLBACK sonnet for the lead", out.startswith("W3 FALLBACK sonnet"), out)
@@ -215,7 +215,7 @@ check("explicit model effort, full-access gate", "model_reasoning_effort=xhigh" 
 out = run("codex_worker.py", "steer", P, "--id", "W1", "fix the typo")
 call = json.loads((TMP / "calls.jsonl").read_text(encoding="utf-8").splitlines()[-1])
 rows = (P / "audits" / "workers.csv").read_text(encoding="utf-8")
-check("steer resumes the same thread and adds tokens", "resume" in call["args"] and "thr-gpt-6.1-sol" in call["args"]
+check("steer resumes the same thread and adds tokens", "resume" in call["args"] and "thr-gpt-6.2-sol" in call["args"]
       and any(l.startswith("W1,") and ",2000,1600,100," in l for l in rows.splitlines()), (call, rows))
 
 def row(wid):
@@ -262,12 +262,12 @@ run("marathon.py", "set", P, "profile=codex")
 before = len(calls())
 worker("s10-gate-default", "--class", "gate", mode="limit")
 check("S10 gate default stays Astra; no backward Sol fallback", len(calls()) == before + 1
-      and "gpt-6-astra" in calls()[-1]["args"] and row("s10-gate-default")["model"] == "gpt-6-astra")
+      and "gpt-6.2-astra" in calls()[-1]["args"] and row("s10-gate-default")["model"] == "gpt-6.2-astra")
 worker("s10-astra-override", "--model", "astra")
-check("S10 explicit Astra worker remains available", row("s10-astra-override")["model"] == "gpt-6-astra")
+check("S10 explicit Astra worker remains available", row("s10-astra-override")["model"] == "gpt-6.2-astra")
 run("marathon.py", "set", P, "workers=astra")
 worker("s10-astra-state")
-check("S10 STATE Astra worker is respected", row("s10-astra-state")["model"] == "gpt-6-astra")
+check("S10 STATE Astra worker is respected", row("s10-astra-state")["model"] == "gpt-6.2-astra")
 
 run("marathon.py", "set", P, "workers=astra", "worker_fallback=sol61,sonnet", "summary_words=517")
 for mode in ("timeout-tools", "crash-tools", "timeout-child"):
@@ -344,12 +344,12 @@ for mode in ("timeout-change", "sibling-change"):
     check(f"{mode}: unrelated tree changes cannot stop fallback", "TIMEOUT" not in out and len(calls()) == before + 2
           and row(mode)["status"] == ("done" if mode == "timeout-change" else "fallback"), out)
 for wid, setting, model, expected in (
-        ("gate-default", "sol61,sonnet", "astra", ["gpt-6-astra", "gpt-6.1-sol"]),
-        ("gate-sol", "sol61,sonnet", "sol61", ["gpt-6.1-sol"]),
+        ("gate-default", "sol61,sonnet", "astra", ["gpt-6.2-astra", "gpt-6.2-sol"]),
+        ("gate-sol", "sol61,sonnet", "sol61", ["gpt-6.2-sol"]),
         ("gate-outside", "sol61,sonnet", "luna", ["gpt-6-luna"]),
-        ("gate-effort", "sol61,sonnet", "astra-xhigh", ["gpt-6-astra", "gpt-6.1-sol"]),
-        ("gate-interleaved", "sonnet,sol61", "astra", ["gpt-6-astra", "gpt-6.1-sol"]),
-        ("gate-single", "", "astra", ["gpt-6-astra"]),
+        ("gate-effort", "sol61,sonnet", "astra-xhigh", ["gpt-6.2-astra", "gpt-6.2-sol"]),
+        ("gate-interleaved", "sonnet,sol61", "astra", ["gpt-6.2-astra", "gpt-6.2-sol"]),
+        ("gate-single", "", "astra", ["gpt-6.2-astra"]),
         ("gate-claude", "sol61,sonnet", "sonnet", [])):
     run("marathon.py", "set", P, f"worker_fallback={setting}")
     before = len(calls())
@@ -380,7 +380,7 @@ check("ops steer preserves ops permission", "never commit or push" in calls()[-1
 before = len(calls())
 out = worker("explicit-sol", "--model", "sol61", mode="limit")
 check("explicit Sol never prepends Astra", "FALLBACK sonnet" in out and len(calls()) == before + 1
-      and calls()[-1]["args"][calls()[-1]["args"].index("-m") + 1] == "gpt-6.1-sol", out)
+      and calls()[-1]["args"][calls()[-1]["args"].index("-m") + 1] == "gpt-6.2-sol", out)
 before = len(calls())
 out = worker("explicit-luna", "--model", "luna", mode="limit")
 check("model absent from chain keeps only Claude fallbacks", "FALLBACK sonnet" in out and len(calls()) == before + 1, out)
@@ -800,7 +800,7 @@ for error in ("401 Unauthorized", "403 forbidden", "429 rate limit", "503 Servic
     before = len(calls())
     worker("api-error-" + error.split()[0], mode="api-error", env=dict(api_env, FAKE_ERROR=error))
     recent = calls()[before:]
-    check("same model tries api then subscription: " + error, [c["backend"] for c in recent] == ["api", "subscription"] and all("gpt-6-astra" in c["args"] for c in recent))
+    check("same model tries api then subscription: " + error, [c["backend"] for c in recent] == ["api", "subscription"] and all("gpt-6.2-astra" in c["args"] for c in recent))
 before = len(calls()); worker("api-model-chain", mode="astra-limit", env=api_env)
 check("all backends before next model", [c["backend"] for c in calls()[before:]] == ["api", "subscription", "api"])
 before = len(calls()); worker("api-gate", "--class", "gate", "--model", "astra", mode="api-error", env=api_env)
@@ -854,7 +854,7 @@ check("footer: no $skill trigger, context and web rules present",
 
 # S10: legacy rows without a recorded model use this run's chain; gate rows stay Astra.
 run("marathon.py", "set", P, "profile=codex", "codex_backends=subscription")
-for wid, cls, expected in (("s10-legacy-worker", "build", "gpt-6.1-sol"), ("s10-legacy-gate", "gate", "gpt-6-astra")):
+for wid, cls, expected in (("s10-legacy-worker", "build", "gpt-6.2-sol"), ("s10-legacy-gate", "gate", "gpt-6.2-astra")):
     cw.m.upsert_worker(P, wid, {"agent": "codex", "thread": "legacy-thread", "class": cls, "effort": "high",
                               "note": f"sha={SHA}" if cls == "gate" else ""})
     run("codex_worker.py", "steer", P, "--id", wid, "continue")
@@ -862,12 +862,12 @@ for wid, cls, expected in (("s10-legacy-worker", "build", "gpt-6.1-sol"), ("s10-
 run("marathon.py", "set", P, "workers=astra-xhigh")
 cw.m.upsert_worker(P, "s10-legacy-effort", {"agent": "codex", "thread": "legacy-thread", "class": "build", "effort": "high"})
 run("codex_worker.py", "steer", P, "--id", "s10-legacy-effort", "continue")
-check("S10 model-less steer uses run model and recorded effort", row("s10-legacy-effort")["model"] == "gpt-6-astra"
+check("S10 model-less steer uses run model and recorded effort", row("s10-legacy-effort")["model"] == "gpt-6.2-astra"
       and row("s10-legacy-effort")["effort"] == "high")
-run("marathon.py", "set", P, "workers=gpt-6.1-sol")
+run("marathon.py", "set", P, "workers=gpt-6.2-sol")
 cw.m.upsert_worker(P, "s10-legacy-alias", {"agent": "codex", "thread": "legacy-thread", "class": "build", "effort": "xhigh"})
 run("codex_worker.py", "steer", P, "--id", "s10-legacy-alias", "continue")
-check("S10 model-less steer normalizes full model alias", row("s10-legacy-alias")["model"] == "gpt-6.1-sol"
+check("S10 model-less steer normalizes full model alias", row("s10-legacy-alias")["model"] == "gpt-6.2-sol"
       and row("s10-legacy-alias")["effort"] == "xhigh")
 
 print(f"\n{len(FAILS)} failure(s)")

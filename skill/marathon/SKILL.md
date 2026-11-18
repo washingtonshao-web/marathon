@@ -31,7 +31,7 @@ Run the installed scripts/ with Python; examples use project-relative paths. Rea
 
 The direction check: at 15–20% of the budget, or as soon as the user can open a first version, send a preview with `marathon.py ask` and three sentences (what was done, what comes next, is this the right direction). The default is to keep going, so the run never waits for it. Record it with `set <dir> direction="sent <date> <link>"`, and later the reply.
 
-Read the mode card, [codex](mode-codex.md) (default: GPT-6.1-Sol high workers, Astra optional) or [claude](mode-claude.md). Show the configuration at kickoff, every wave and gate, and after changes. fast runs up to 10 workers with a gate after each wave, balanced up to 4 with a gate after each integration, efficient up to 4 with gates at milestones; the reviewers are the same.
+Read the mode card, [codex](mode-codex.md) (default: GPT-6.2-Sol high workers, Astra optional) or [claude](mode-claude.md). Show the configuration at kickoff, every wave and gate, and after changes. fast runs up to 10 workers with a gate after each wave, balanced up to 4 with a gate after each integration, efficient up to 4 with gates at milestones; the reviewers are the same.
 
 ## Lead practice
 
