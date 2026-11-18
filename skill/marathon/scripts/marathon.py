@@ -87,9 +87,9 @@ OVERVIEW_GLOBS = [str(root / "*" / "STATE.md") for root in ([Path(os.environ["MA
 # "sonnet" / "opus" mean the current Claude models. Default workers: sol61; fallback chain: astra, then sonnet.
 # 2026-11-19: GPT ids come from an optional models/roles.json (roles astra / sol / luna), so a new release is a one-line
 # change there; "sol" and "sol61" both mean the sol role. ROLES_FALLBACK mirrors roles.json for a copy without it.
-ROLES_FALLBACK = {"astra": ("gpt-6.2-astra", "high"), "sol": ("gpt-6.2-sol", "medium"), "luna": ("gpt-6-luna", "low"),
-                  "opus": ("claude-opus-5-5", "high"), "sonnet": ("claude-sonnet-5-5", "medium"),
-                  "fable": ("claude-fable-5-2", "high"), "deepseek": ("deepseek-v4-flash-0731", "high")}
+ROLES_FALLBACK = {"astra": ("gpt-6.2-astra", "high"), "sol": ("gpt-6.2-sol", "high"), "luna": ("gpt-6-luna", "high"),
+                  "opus": ("claude-opus-5-5", "high"), "sonnet": ("claude-sonnet-5-5", "high"),
+                  "fable": ("claude-fable-5-2", "high")}
 
 
 def role_models() -> dict[str, str]:
