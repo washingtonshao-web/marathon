@@ -42,7 +42,9 @@ def page(src: Path, lang: str) -> str:
     html = src.read_text(encoding="utf-8")
     css = (SITE / "src" / "site.css").read_text(encoding="utf-8")
     html = html.replace('<link rel="stylesheet" href="site.css">', f"<style>\n{css}</style>")
-    return html.replace("<!--HEADER-->", header(lang)).replace("<!--FOOTER-->", footer(lang))
+    jumps = [("how", "怎么运作"), ("modes", "模式"), ("results", "实测"), ("install", "安装"), ("faq", "常见问题")] if lang == "zh" else [("how", "How it works"), ("modes", "Modes"), ("results", "Results"), ("install", "Install"), ("faq", "FAQ")]
+    jump = '<nav class="m-jump" aria-label="' + ("章节导航" if lang == "zh" else "Page sections") + '"><div class="k-page m-jump__in">' + ''.join(f'<a href="#{anchor}">{label}</a>' for anchor, label in jumps) + '</div></nav>'
+    return html.replace("<!--HEADER-->", header(lang) + jump).replace("<!--FOOTER-->", footer(lang))
 
 
 DOC_SHELL = """<!doctype html>
@@ -122,7 +124,8 @@ def doc_page(md_path: Path, lang: str, dl_href: str = "/marathon-skill.zip", dl:
                             lede=lede, dl=dl or ("下载一键安装包" if zh else "Download the installer"), dl_href=dl_href, toc=toc, body=body)
     css = (SITE / "src" / "site.css").read_text(encoding="utf-8")
     html = html.replace('<link rel="stylesheet" href="site.css">', f"<style>\n{css}</style>").replace("ICON", ICON)
-    return html.replace("<!--HEADER-->", header(lang)).replace("<!--FOOTER-->", footer(lang))
+    jump = '<nav class="m-jump" aria-label="' + ("文档章节" if zh else "Guide sections") + '"><div class="k-page m-jump__in">' + toc + '</div></nav>'
+    return html.replace("<!--HEADER-->", header(lang) + jump).replace("<!--FOOTER-->", footer(lang))
 
 
 def main():

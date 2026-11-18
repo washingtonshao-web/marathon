@@ -21,14 +21,13 @@
 <main id="top">
   <section class="m-hero"><div class="k-page m-hero__in">
     <div class="m-hero__text">
-      <div class="k-hero__eyebrow">Claude Code 和 OpenAI Codex 通用的 skill</div>
-      <h1>把要做<span class="m-nw">几个小时的项目</span>交给 AI，Marathon 一直做到达标为止</h1>
-      <p class="k-hero__lede">它先和你定好目标和评分标准，再派多个 worker 并行干活；每一轮由两个不同的模型独立打分，直到分数达标、分数不再上涨或预算用完。最后提交、上线，并给你一份决策备忘。</p>
+      <h1>Marathon 把长项目做到达标</h1>
+      <p class="k-hero__lede">Claude Code 和 Codex 通用的项目技能。</p>
+      <div class="k-verdict m-verdict"><p>两次实测：Claude 每活跃小时的花费减少 <strong>59–72%</strong>；一个卡住的项目切换后三轮内达标。</p></div>
       <div class="m-cta">
         <a class="k-btn k-btn--primary m-btn-big" href="/marathon-skill.zip" download>下载一键安装包</a>
-        <a class="k-btn m-btn-big" href="https://github.com/washingtonshao-web/marathon">GitHub 上查看</a>
+        <a class="m-github" href="https://github.com/washingtonshao-web/marathon">GitHub 上查看</a>
       </div>
-      <p class="m-cta__note">一个 zip 包支持 Windows、macOS、Linux · 免费，MIT 许可 · 需要 Python 3.10+ 和 Claude Code（默认模式还需要 Codex CLI）</p>
     </div>
     <figure class="m-board" aria-label="真实运行中的状态面板">
       <div class="m-board__bar"><span class="m-dot"></span>status（简化）</div>
@@ -52,6 +51,7 @@ Next     inventory walk · UI audit</pre>
 
     <section class="k-section" id="how">
       <div class="k-section__head"><h2>你只和一个 lead 说话；worker 干活；每轮两个模型打分</h2></div>
+      <p class="k-prose m-how-intro">它先和你定好目标和评分标准，再派多个 worker 并行干活；每一轮由两个不同的模型独立打分，直到分数达标、分数不再上涨或预算用完。最后提交、上线，并给你一份决策备忘。</p>
       <figure class="k-figure m-flow-fig">
         <svg class="m-flow" viewBox="0 0 1000 250" role="img" aria-label="Marathon 的循环：开工、派活、汇报、闸门、修改或交付">
           <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="m-flow__arrow"/></marker></defs>
@@ -71,22 +71,22 @@ Next     inventory walk · UI audit</pre>
 
     <section class="k-section" id="features">
       <div class="k-section__head"><h2>它能替你做什么</h2></div>
-      <div class="m-features">
-        <div class="m-feat"><h3>只问一次，然后开干</h3><p>开工时最多 5 个问题，默认值已经选好，点一次确认就行；你不在时，10 分钟后按默认开跑。</p></div>
-        <div class="m-feat"><h3>做完 = 你愿意直接用</h3><p>开工前写下对标对象、数字目标和及格线，但分数只是最低要求：两位评审都没有严重问题、都说会直接拿去用，才算做完。</p></div>
-        <div class="m-feat"><h3>并行的 worker</h3><p>同时派多个 worker（默认的 balanced 模式最多 4 个）写代码、做研究、跑测试、改页面。每个只交回一段简短总结，完整报告存成文件。</p></div>
-        <div class="m-feat"><h3>双模型评审闸门</h3><p>Claude Fable 5.2 和 GPT-6-Astra 独立给同一个冻结版本打分；分歧大时按证据裁决，而不是取平均。</p></div>
-        <div class="m-feat"><h3>不用说“继续”</h3><p>停止 hook 让它一直跑下去，直到满足停止条件：达标、连续三轮没有实质进步、预算用完，或者只有你能处理的事。</p></div>
-        <div class="m-feat"><h3>不怕上下文变长</h3><p>进度存在 STATE.md 里，不靠记忆。新 lead 在空档接班，从上一个停下的地方继续。</p></div>
-        <div class="m-feat"><h3>花费算得清</h3><p>每个 worker 记一行账；<code>marathon.py usage</code> 按 token 类型和价格算出 Claude 花费，钱花在哪一目了然。</p></div>
-        <div class="m-feat"><h3>交付后再汇报</h3><p>最终闸门就是独立复核。lead 提交、上线、核对线上版本，最后给你一份备忘：改了什么、局限、下一步选项。</p></div>
-      </div>
-      <div class="k-callout"><div class="k-callout__title">这些事它永远不替你决定</div><div>登录、密码、付款、公开发布、删除东西和追加预算，一定等你回答；其他事情才按默认值走。</div></div>
+      <dl class="m-features">
+        <div class="m-feat"><dt>只问一次，然后开干</dt><dd>开工时最多 5 个问题，默认值已经选好，点一次确认就行；你不在时，10 分钟后按默认开跑。</dd></div>
+        <div class="m-feat"><dt>做完 = 你愿意直接用</dt><dd>开工前写下对标对象、数字目标和及格线，但分数只是最低要求：两位评审都没有严重问题、都说会直接拿去用，才算做完。</dd></div>
+        <div class="m-feat"><dt>并行的 worker</dt><dd>同时派多个 worker（默认的 balanced 模式最多 4 个）写代码、做研究、跑测试、改页面。每个只交回一段简短总结，完整报告存成文件。</dd></div>
+        <div class="m-feat"><dt>双模型评审闸门</dt><dd>Claude Fable 5.2 和 GPT-6-Astra 独立给同一个冻结版本打分；分歧大时按证据裁决，而不是取平均。</dd></div>
+        <div class="m-feat"><dt>不用说“继续”</dt><dd>停止 hook 让它一直跑下去，直到满足停止条件：达标、连续三轮没有实质进步、预算用完，或者只有你能处理的事。</dd></div>
+        <div class="m-feat"><dt>不怕上下文变长</dt><dd>进度存在 STATE.md 里，不靠记忆。新 lead 在空档接班，从上一个停下的地方继续。</dd></div>
+        <div class="m-feat"><dt>花费算得清</dt><dd>每个 worker 记一行账；<code>marathon.py usage</code> 按 token 类型和价格算出 Claude 花费，钱花在哪一目了然。</dd></div>
+        <div class="m-feat"><dt>交付后再汇报</dt><dd>最终闸门就是独立复核。lead 提交、上线、核对线上版本，最后给你一份备忘：改了什么、局限、下一步选项。</dd></div>
+      </dl>
+      <p class="k-prose m-decisions"><strong>这些事它永远不替你决定：</strong> 登录、密码、付款、公开发布、删除东西和追加预算，一定等你回答；其他事情才按默认值走。</p>
     </section>
 
     <section class="k-section" id="modes">
       <div class="k-section__head"><h2>两种模式：默认 Codex 干活，也可以全用 Claude</h2></div>
-      <div class="k-table-wrap"><table class="k-table m-modes">
+      <div class="k-table-wrap m-modes-desktop"><table class="k-table m-modes">
         <thead><tr><th></th><th>Codex worker 模式（默认）</th><th>全 Claude</th></tr></thead>
         <tbody>
           <tr><td>lead</td><td colspan="2">你对话的那个会话：Claude Code 里是 Claude Opus，Codex 里是你的 Codex 模型</td></tr>
@@ -96,6 +96,11 @@ Next     inventory walk · UI audit</pre>
           <tr><td>什么时候选</td><td data-label="Codex worker 模式（默认）">大多数长项目</td><td data-label="全 Claude">没有 Codex，或任务离不开只有 Claude 才有的工具</td></tr>
         </tbody>
       </table></div>
+      <dl class="m-modes-phone"><div class="m-mode"><dt>lead</dt><dd><span class="m-mode__label">Codex worker 模式（默认）</span>你对话的那个会话：Claude Code 里是 Claude Opus，Codex 里是你的 Codex 模型</dd><dd><span class="m-mode__label">全 Claude</span>你对话的那个会话：Claude Code 里是 Claude Opus，Codex 里是你的 Codex 模型</dd></div>
+<div class="m-mode"><dt>worker</dt><dd><span class="m-mode__label">Codex worker 模式（默认）</span>GPT-6.1-Sol high → GPT-6-Astra high → Claude Sonnet</dd><dd><span class="m-mode__label">全 Claude</span>Claude Sonnet → Claude Opus</dd></div>
+<div class="m-mode"><dt>评审闸门</dt><dd><span class="m-mode__label">Codex worker 模式（默认）</span>每轮 Fable 5.2 high + Astra high</dd><dd><span class="m-mode__label">全 Claude</span>每轮 Fable，最终轮再加 Astra</dd></div>
+<div class="m-mode"><dt>花谁的额度</dt><dd><span class="m-mode__label">Codex worker 模式（默认）</span>worker 用你的 ChatGPT/Codex 订阅或你自己的 API；lead 和 Fable 用 Claude</dd><dd><span class="m-mode__label">全 Claude</span>几乎全部用 Claude</dd></div>
+<div class="m-mode"><dt>什么时候选</dt><dd><span class="m-mode__label">Codex worker 模式（默认）</span>大多数长项目</dd><dd><span class="m-mode__label">全 Claude</span>没有 Codex，或任务离不开只有 Claude 才有的工具</dd></div></dl>
       <p class="k-prose m-small">随时可以换，直接说就行（“worker 换成 Astra”“改成全 Claude”），从下一个 worker 开始生效。生物类题目如果 Claude 评审不愿意审，可以用 Sonnet + Astra 当闸门。</p>
     </section>
 
@@ -105,32 +110,23 @@ Next     inventory walk · UI audit</pre>
         <figure class="k-figure">
           <div class="k-figure__title">worker 换成 Codex 后，每活跃小时的 Claude 花费少了 59–72%</div>
           <div class="k-figure__sub">Claude 花费，按 API 价格折算，美元 / 活跃小时；切换前 24 小时对比切换后约 20 小时</div>
-          <svg class="m-bars" viewBox="0 0 460 210" role="img" aria-label="业务系统 41.0 降到 11.4 美元每小时；网页游戏 15.5 降到 6.3">
-            <g class="m-axis"><line x1="130" y1="20" x2="130" y2="180"/></g>
-            <text x="120" y="52" class="m-lab">业务系统</text>
-            <rect x="130" y="32" width="270" height="20" class="m-b m-b--before"/><text x="406" y="47" class="m-val">$41.0</text>
-            <rect x="130" y="56" width="75" height="20" class="m-b m-b--after"/><text x="211" y="71" class="m-val m-val--hi">$11.4（−72%）</text>
-            <text x="120" y="122" class="m-lab">网页游戏</text>
-            <rect x="130" y="102" width="102" height="20" class="m-b m-b--before"/><text x="238" y="117" class="m-val">$15.5</text>
-            <rect x="130" y="126" width="41" height="20" class="m-b m-b--after"/><text x="177" y="141" class="m-val m-val--hi">$6.3（−59%）</text>
-            <rect x="130" y="186" width="12" height="10" class="m-b m-b--before"/><text x="148" y="195" class="m-key">切换前（Claude worker）</text>
-            <rect x="300" y="186" width="12" height="10" class="m-b m-b--after"/><text x="318" y="195" class="m-key">切换后（Codex worker）</text>
-          </svg>
+          <div class="m-cost-chart"><div class="m-cost-project"><p><strong>业务系统</strong></p><div class="m-bar-row"><span>切换前</span><span class="m-bar-track" aria-hidden="true"><span class="m-bar-fill m-bar-fill--before" style="width:100.0000%"></span></span><span class="m-bar-value m-bar-value--before">$41.0</span></div><div class="m-bar-row"><span>切换后</span><span class="m-bar-track" aria-hidden="true"><span class="m-bar-fill m-bar-fill--after" style="width:27.8049%"></span></span><span class="m-bar-value m-bar-value--after">$11.4 (−72%)</span></div></div>
+<div class="m-cost-project"><p><strong>网页游戏</strong></p><div class="m-bar-row"><span>切换前</span><span class="m-bar-track" aria-hidden="true"><span class="m-bar-fill m-bar-fill--before" style="width:37.8049%"></span></span><span class="m-bar-value m-bar-value--before">$15.5</span></div><div class="m-bar-row"><span>切换后</span><span class="m-bar-track" aria-hidden="true"><span class="m-bar-fill m-bar-fill--after" style="width:15.3659%"></span></span><span class="m-bar-value m-bar-value--after">$6.3 (−59%)</span></div></div></div>
           <figcaption>按项目自己的对话记录、分 token 类型（缓存读写分开）计价。Codex 用的是订阅，不在这些数字里。</figcaption>
         </figure>
         <figure class="k-figure">
           <div class="k-figure__title">卡住的项目，切换后三轮内达标</div>
           <div class="k-figure__sub">业务系统项目各轮评审分数（0–100）；当时的及格线为 75</div>
-          <svg class="m-line" viewBox="0 0 460 210" role="img" aria-label="分数 57.5、71、65.5、67、67.5、65.5、73.5、76.5，最终 77">
-            <line x1="40" y1="60" x2="450" y2="60" class="m-pass"/><text x="46" y="54" class="m-key">及格 75</text>
-            <line x1="40" y1="180" x2="450" y2="180" class="m-grid"/><text x="34" y="184" class="m-key" text-anchor="end">55</text>
-            <line x1="40" y1="90" x2="450" y2="90" class="m-grid"/><text x="34" y="94" class="m-key" text-anchor="end">70</text>
-            <rect x="252" y="20" width="198" height="160" class="m-zone"/><text x="258" y="172" class="m-key">Codex worker + 双模型闸门</text>
+          <svg class="m-line" viewBox="0 0 460 250" role="img" aria-label="分数 57.5、71、65.5、67、67.5、65.5、73.5、76.5，最终 77">
+            <line x1="40" y1="60" x2="430" y2="60" class="m-pass"/><text x="46" y="54" class="m-key">及格 75</text>
+            <line x1="40" y1="180" x2="430" y2="180" class="m-grid"/><text x="437" y="184" class="m-key" text-anchor="start">55</text>
+            <line x1="40" y1="90" x2="430" y2="90" class="m-grid"/><text x="437" y="94" class="m-key" text-anchor="start">70</text>
             <polyline class="m-series" points="40,165 87,84 134,117 181,108 228,105 275,117 322,69 369,51 416,48"/>
             <g class="m-pts"><circle cx="40" cy="165" r="3.5"/><circle cx="87" cy="84" r="3.5"/><circle cx="134" cy="117" r="3.5"/><circle cx="181" cy="108" r="3.5"/><circle cx="228" cy="105" r="3.5"/><circle cx="275" cy="117" r="3.5"/><circle cx="322" cy="69" r="3.5"/><circle cx="369" cy="51" r="3.5"/><circle cx="416" cy="48" r="4.5" class="m-pt-end"/></g>
             <text x="416" y="38" class="m-val m-val--hi" text-anchor="middle">77.0</text>
             <text x="40" y="200" class="m-key" text-anchor="middle">R1</text><text x="228" y="200" class="m-key" text-anchor="middle">R5</text><text x="369" y="200" class="m-key" text-anchor="middle">R8</text><text x="416" y="200" class="m-key" text-anchor="middle">最终</text>
           
+          <path d="M275 123V226H242" class="m-annotation"/><text x="40" y="241" class="m-key m-note">R6：Codex worker + 第二位评审</text>
           </svg>
           <figcaption>第 3–5 轮一直在 65.5–67.5 之间。第 6 轮开始用 Codex worker 并加入第二位评审，第 8 轮首次超过及格线。上涨有一部分来自第二位评审抓到了第一位漏掉的问题，不全是 worker 的功劳。</figcaption>
         </figure>
@@ -140,6 +136,7 @@ Next     inventory walk · UI audit</pre>
 
     <section class="k-section" id="install">
       <div class="k-section__head"><h2>一键安装</h2></div>
+      <p class="m-cta__note">一个 zip 包支持 Windows、macOS、Linux · 免费，MIT 许可 · 需要 Python 3.10+ 和 Claude Code（默认模式还需要 Codex CLI）</p>
       <ol class="m-steps">
         <li><b>下载</b> <a href="/marathon-skill.zip" download>marathon-skill.zip</a>，解压到任意位置。</li>
         <li><b>运行安装程序。</b>Windows：双击 <code>install.cmd</code>；macOS / Linux：<code>sh install.sh</code>。它会装到你已有的 Claude Code 和 Codex 里，旧版本会先备份。同时装上配套的小技能 <b>de-ai</b>（去AI味）：评审用它挑出读起来像机器写的文字，你也可以单独说“去AI味”“改成人话”，让它在不改事实的前提下把文字改顺。</li>

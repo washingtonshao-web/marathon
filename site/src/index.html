@@ -21,14 +21,13 @@
 <main id="top">
   <section class="m-hero"><div class="k-page m-hero__in">
     <div class="m-hero__text">
-      <div class="k-hero__eyebrow">A skill for Claude Code and OpenAI Codex</div>
-      <h1>Hand an AI a multi‑hour project. Marathon runs it to a scored finish.</h1>
-      <p class="k-hero__lede">Marathon plans the work, runs parallel workers, has two different models grade every round against targets you agreed at the start, and keeps going until the target is met, the score stops improving or the budget runs out. Then it ships and writes you a decision memo.</p>
+      <h1>Marathon runs multi-hour AI projects to a scored finish.</h1>
+      <p class="k-hero__lede">A project skill for Claude Code and Codex.</p>
+      <div class="k-verdict m-verdict"><p>On two real runs: <strong>59–72% less Claude spend per active hour</strong>. A stalled run passed within three rounds.</p></div>
       <div class="m-cta">
         <a class="k-btn k-btn--primary m-btn-big" href="/marathon-skill.zip" download>Download the installer</a>
-        <a class="k-btn m-btn-big" href="https://github.com/washingtonshao-web/marathon">View on GitHub</a>
+        <a class="m-github" href="https://github.com/washingtonshao-web/marathon">View on GitHub</a>
       </div>
-      <p class="m-cta__note">One zip for Windows, macOS and Linux · free, MIT licence · needs Python 3.10+ and Claude Code (plus the Codex CLI for the default mode)</p>
     </div>
     <figure class="m-board" aria-label="Status board of a real run">
       <div class="m-board__bar"><span class="m-dot"></span>status (simplified)</div>
@@ -52,6 +51,7 @@ Next     inventory walk · UI audit</pre>
 
     <section class="k-section" id="how">
       <div class="k-section__head"><h2>You talk to one lead; workers build; two models grade every round</h2></div>
+      <p class="k-prose m-how-intro">Marathon plans the work, runs parallel workers, has two different models grade every round against targets you agreed at the start, and keeps going until the target is met, the score stops improving or the budget runs out. Then it ships and writes you a decision memo.</p>
       <figure class="k-figure m-flow-fig">
         <svg class="m-flow" viewBox="0 0 1000 250" role="img" aria-label="The Marathon loop: kickoff, dispatch, report, gate, then fix or ship">
           <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="m-flow__arrow"/></marker></defs>
@@ -71,22 +71,22 @@ Next     inventory walk · UI audit</pre>
 
     <section class="k-section" id="features">
       <div class="k-section__head"><h2>What it does for you</h2></div>
-      <div class="m-features">
-        <div class="m-feat"><h3>Asks once, then works</h3><p>At most five questions at kickoff, each with a default already selected. Answer with one click, or walk away: after 10 minutes it starts on the defaults.</p></div>
-        <div class="m-feat"><h3>Done means you would use it</h3><p>The charter fixes a benchmark, numeric targets and a pass mark, but the score is only the floor: done means neither reviewer lists a serious problem and both would use the result as is.</p></div>
-        <div class="m-feat"><h3>Parallel workers</h3><p>Several bounded workers at a time (four in the default balanced mode) write code, research, run tests or polish pages. Each returns a short summary; full reports go to files.</p></div>
-        <div class="m-feat"><h3>Two-model review gate</h3><p>Claude Fable 5.2 and GPT-6-Astra grade the same frozen commit independently. Big disagreements are ruled on with evidence, not averaged away.</p></div>
-        <div class="m-feat"><h3>Never needs “continue”</h3><p>A stop hook keeps the run going until a stop rule holds: target met, three rounds without real gains, budget used, or something only you can do.</p></div>
-        <div class="m-feat"><h3>Survives long contexts</h3><p>Progress lives in STATE.md, not in memory. A fresh lead takes over at a quiet point and picks up exactly where the last one stopped.</p></div>
-        <div class="m-feat"><h3>Counts the cost</h3><p>Every worker gets a ledger row. <code>marathon.py usage</code> prices Claude tokens by type, so you see where the money goes.</p></div>
-        <div class="m-feat"><h3>Ships, then reports</h3><p>The final gate is the independent review. The lead commits, deploys, checks the live version and ends with a memo: what changed, limits, options.</p></div>
-      </div>
-      <div class="k-callout"><div class="k-callout__title">It never decides these for you</div><div>Signing in, passwords, payments, publishing something publicly, deleting things and adding budget always wait for your answer, even when everything else runs on defaults.</div></div>
+      <dl class="m-features">
+        <div class="m-feat"><dt>Asks once, then works</dt><dd>At most five questions at kickoff, each with a default already selected. Answer with one click, or walk away: after 10 minutes it starts on the defaults.</dd></div>
+        <div class="m-feat"><dt>Done means you would use it</dt><dd>The charter fixes a benchmark, numeric targets and a pass mark, but the score is only the floor: done means neither reviewer lists a serious problem and both would use the result as is.</dd></div>
+        <div class="m-feat"><dt>Parallel workers</dt><dd>Several bounded workers at a time (four in the default balanced mode) write code, research, run tests or polish pages. Each returns a short summary; full reports go to files.</dd></div>
+        <div class="m-feat"><dt>Two-model review gate</dt><dd>Claude Fable 5.2 and GPT-6-Astra grade the same frozen commit independently. Big disagreements are ruled on with evidence, not averaged away.</dd></div>
+        <div class="m-feat"><dt>Never needs “continue”</dt><dd>A stop hook keeps the run going until a stop rule holds: target met, three rounds without real gains, budget used, or something only you can do.</dd></div>
+        <div class="m-feat"><dt>Survives long contexts</dt><dd>Progress lives in STATE.md, not in memory. A fresh lead takes over at a quiet point and picks up exactly where the last one stopped.</dd></div>
+        <div class="m-feat"><dt>Counts the cost</dt><dd>Every worker gets a ledger row. <code>marathon.py usage</code> prices Claude tokens by type, so you see where the money goes.</dd></div>
+        <div class="m-feat"><dt>Ships, then reports</dt><dd>The final gate is the independent review. The lead commits, deploys, checks the live version and ends with a memo: what changed, limits, options.</dd></div>
+      </dl>
+      <p class="k-prose m-decisions"><strong>It never decides these for you.</strong> Signing in, passwords, payments, publishing something publicly, deleting things and adding budget always wait for your answer, even when everything else runs on defaults.</p>
     </section>
 
     <section class="k-section" id="modes">
       <div class="k-section__head"><h2>Two modes: Codex workers by default, or all Claude</h2></div>
-      <div class="k-table-wrap"><table class="k-table m-modes">
+      <div class="k-table-wrap m-modes-desktop"><table class="k-table m-modes">
         <thead><tr><th></th><th>Codex workers (default)</th><th>All Claude</th></tr></thead>
         <tbody>
           <tr><td>Lead</td><td colspan="2">The session you talk to: Claude Opus in Claude Code, or your model in Codex</td></tr>
@@ -96,6 +96,11 @@ Next     inventory walk · UI audit</pre>
           <tr><td>Pick it when</td><td data-label="Codex workers (default)">Most long projects</td><td data-label="All Claude">No Codex, or the task needs Claude-only tools</td></tr>
         </tbody>
       </table></div>
+      <dl class="m-modes-phone"><div class="m-mode"><dt>Lead</dt><dd><span class="m-mode__label">Codex workers (default)</span>The session you talk to: Claude Opus in Claude Code, or your model in Codex</dd><dd><span class="m-mode__label">All Claude</span>The session you talk to: Claude Opus in Claude Code, or your model in Codex</dd></div>
+<div class="m-mode"><dt>Workers</dt><dd><span class="m-mode__label">Codex workers (default)</span>GPT-6.1-Sol high → GPT-6-Astra high → Claude Sonnet</dd><dd><span class="m-mode__label">All Claude</span>Claude Sonnet → Claude Opus</dd></div>
+<div class="m-mode"><dt>Review gate</dt><dd><span class="m-mode__label">Codex workers (default)</span>Fable 5.2 high + Astra high, every round</dd><dd><span class="m-mode__label">All Claude</span>Fable every round, Astra added at the final gate</dd></div>
+<div class="m-mode"><dt>Whose quota</dt><dd><span class="m-mode__label">Codex workers (default)</span>Workers on your ChatGPT/Codex plan or your own API endpoint; lead and Fable on Claude</dd><dd><span class="m-mode__label">All Claude</span>Almost everything on Claude</dd></div>
+<div class="m-mode"><dt>Pick it when</dt><dd><span class="m-mode__label">Codex workers (default)</span>Most long projects</dd><dd><span class="m-mode__label">All Claude</span>No Codex, or the task needs Claude-only tools</dd></div></dl>
       <p class="k-prose m-small">Switch any time by saying so (“workers to Astra”, “switch to all Claude”); it takes effect from the next worker. Biology topics can use Sonnet + Astra as the gate when the Claude reviewer declines the subject.</p>
     </section>
 
@@ -105,31 +110,22 @@ Next     inventory walk · UI audit</pre>
         <figure class="k-figure">
           <div class="k-figure__title">Moving workers to Codex cut Claude spend per active hour by 59–72%</div>
           <div class="k-figure__sub">Claude cost, API-equivalent US$ per active hour, 24 h before vs ~20 h after the switch</div>
-          <svg class="m-bars" viewBox="0 0 460 210" role="img" aria-label="Business system 41.0 to 11.4 dollars per hour; browser game 15.5 to 6.3">
-            <g class="m-axis"><line x1="130" y1="20" x2="130" y2="180"/></g>
-            <text x="120" y="52" class="m-lab">Business system</text>
-            <rect x="130" y="32" width="270" height="20" class="m-b m-b--before"/><text x="406" y="47" class="m-val">$41.0</text>
-            <rect x="130" y="56" width="75" height="20" class="m-b m-b--after"/><text x="211" y="71" class="m-val m-val--hi">$11.4 (−72%)</text>
-            <text x="120" y="122" class="m-lab">Browser game</text>
-            <rect x="130" y="102" width="102" height="20" class="m-b m-b--before"/><text x="238" y="117" class="m-val">$15.5</text>
-            <rect x="130" y="126" width="41" height="20" class="m-b m-b--after"/><text x="177" y="141" class="m-val m-val--hi">$6.3 (−59%)</text>
-            <rect x="130" y="186" width="12" height="10" class="m-b m-b--before"/><text x="148" y="195" class="m-key">before (Claude workers)</text>
-            <rect x="300" y="186" width="12" height="10" class="m-b m-b--after"/><text x="318" y="195" class="m-key">after (Codex workers)</text>
-          </svg>
+          <div class="m-cost-chart"><div class="m-cost-project"><p><strong>Business system</strong></p><div class="m-bar-row"><span>Before</span><span class="m-bar-track" aria-hidden="true"><span class="m-bar-fill m-bar-fill--before" style="width:100.0000%"></span></span><span class="m-bar-value m-bar-value--before">$41.0</span></div><div class="m-bar-row"><span>After</span><span class="m-bar-track" aria-hidden="true"><span class="m-bar-fill m-bar-fill--after" style="width:27.8049%"></span></span><span class="m-bar-value m-bar-value--after">$11.4 (−72%)</span></div></div>
+<div class="m-cost-project"><p><strong>Browser game</strong></p><div class="m-bar-row"><span>Before</span><span class="m-bar-track" aria-hidden="true"><span class="m-bar-fill m-bar-fill--before" style="width:37.8049%"></span></span><span class="m-bar-value m-bar-value--before">$15.5</span></div><div class="m-bar-row"><span>After</span><span class="m-bar-track" aria-hidden="true"><span class="m-bar-fill m-bar-fill--after" style="width:15.3659%"></span></span><span class="m-bar-value m-bar-value--after">$6.3 (−59%)</span></div></div></div>
           <figcaption>Priced from the runs' own transcripts by token type (cache reads and writes separated). Codex usage ran on a subscription and is not in these numbers.</figcaption>
         </figure>
         <figure class="k-figure">
           <div class="k-figure__title">The stuck run passed three rounds after the switch</div>
           <div class="k-figure__sub">Review gate score (0–100) by round, business-system run; pass mark 75 at the time</div>
-          <svg class="m-line" viewBox="0 0 460 210" role="img" aria-label="Scores 57.5, 71, 65.5, 67, 67.5, 65.5, 73.5, 76.5, final 77">
-            <line x1="40" y1="60" x2="450" y2="60" class="m-pass"/><text x="46" y="54" class="m-key">pass 75</text>
-            <line x1="40" y1="180" x2="450" y2="180" class="m-grid"/><text x="34" y="184" class="m-key" text-anchor="end">55</text>
-            <line x1="40" y1="90" x2="450" y2="90" class="m-grid"/><text x="34" y="94" class="m-key" text-anchor="end">70</text>
-            <rect x="252" y="20" width="198" height="160" class="m-zone"/><text x="258" y="172" class="m-key">Codex workers + two-model gate</text>
+          <svg class="m-line" viewBox="0 0 460 250" role="img" aria-label="Scores 57.5, 71, 65.5, 67, 67.5, 65.5, 73.5, 76.5, final 77">
+            <line x1="40" y1="60" x2="430" y2="60" class="m-pass"/><text x="46" y="54" class="m-key">pass 75</text>
+            <line x1="40" y1="180" x2="430" y2="180" class="m-grid"/><text x="437" y="184" class="m-key" text-anchor="start">55</text>
+            <line x1="40" y1="90" x2="430" y2="90" class="m-grid"/><text x="437" y="94" class="m-key" text-anchor="start">70</text>
             <polyline class="m-series" points="40,165 87,84 134,117 181,108 228,105 275,117 322,69 369,51 416,48"/>
             <g class="m-pts"><circle cx="40" cy="165" r="3.5"/><circle cx="87" cy="84" r="3.5"/><circle cx="134" cy="117" r="3.5"/><circle cx="181" cy="108" r="3.5"/><circle cx="228" cy="105" r="3.5"/><circle cx="275" cy="117" r="3.5"/><circle cx="322" cy="69" r="3.5"/><circle cx="369" cy="51" r="3.5"/><circle cx="416" cy="48" r="4.5" class="m-pt-end"/></g>
             <text x="416" y="38" class="m-val m-val--hi" text-anchor="middle">77.0</text>
             <text x="40" y="200" class="m-key" text-anchor="middle">R1</text><text x="228" y="200" class="m-key" text-anchor="middle">R5</text><text x="369" y="200" class="m-key" text-anchor="middle">R8</text><text x="416" y="200" class="m-key" text-anchor="middle">final</text>
+          <path d="M275 123V226H242" class="m-annotation"/><text x="40" y="241" class="m-key m-note">R6: Codex workers + second reviewer</text>
           </svg>
           <figcaption>Rounds 3–5 hovered at 65.5–67.5. Round 6 was the first with Codex workers and the second reviewer; the pass mark was first crossed in round 8. Part of the gain came from the second reviewer catching what the first missed, not only from the new workers.</figcaption>
         </figure>
@@ -139,6 +135,7 @@ Next     inventory walk · UI audit</pre>
 
     <section class="k-section" id="install">
       <div class="k-section__head"><h2>Install in one click</h2></div>
+      <p class="m-cta__note">One zip for Windows, macOS and Linux · free, MIT licence · needs Python 3.10+ and Claude Code (plus the Codex CLI for the default mode)</p>
       <ol class="m-steps">
         <li><b>Download</b> <a href="/marathon-skill.zip" download>marathon-skill.zip</a> and unzip it anywhere.</li>
         <li><b>Run the installer.</b> Windows: double-click <code>install.cmd</code>. macOS / Linux: <code>sh install.sh</code>. It installs into Claude Code and Codex, whichever you have, and backs up any older copy. It also adds <b>de-ai</b> (去AI味), a small companion skill: reviewers use it to catch machine-sounding prose, and you can call it yourself ("de-AI this page", "humanize this") to rewrite text without changing its facts.</li>
