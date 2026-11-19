@@ -67,7 +67,7 @@ Gate     Fable 5.2 high + GPT-6.2-Astra high
 | `skill/de-ai/` | 去AI味配套技能：`SKILL.md`、`patterns.md`、`scripts/ai_tells.py` |
 | `install/` | `install.cmd` + `install.ps1`（Windows）、`install.sh`（macOS/Linux） |
 | `docs/` | 中英文文档 |
-| `site/` | toolkits.falconshire.com/marathon/ 上 Marathon 页面的源码（构建时用到一套不在本仓库里的设计组件；发布出去的网页是自包含的）。`site/redirect/` 是旧地址 marathon.falconshire.com，现在跳转过去，并保留两个安装包 |
+| `site/` | toolkits.falconshire.com/marathon/ 上 Marathon 页面的源码（构建时用到一套不在本仓库里的设计组件；发布出去的网页是自包含的） |
 | `tools/make_zip.py` | 生成安装包 |
 
 ## 许可

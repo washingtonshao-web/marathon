@@ -1,7 +1,6 @@
 """Build the Marathon pages into site/out/: landing pages (EN, 中文), guides from docs/*.md, the installer zips (Marathon, animation-making).
 They are served at toolkits.falconshire.com/marathon/ (the Falcon Toolkit page build copies site/out there with
-MARATHON_BASE=/marathon). marathon.falconshire.com, the former address, keeps only redirect pages and the two zips,
-built into site/redirect/out/ (published from the newest version tag by the daily auto-publish).
+MARATHON_BASE=/marathon). The former address marathon.falconshire.com was deleted on 2026-11-20.
 
     SITE_KIT_APPLY=<path to the design kit's apply_kit.py> [MARATHON_BASE=/marathon] python site/build.py
 """
@@ -137,44 +136,6 @@ def doc_page(md_path: Path, lang: str, dl_href: str = "/marathon-skill.zip", dl:
     return html.replace("<!--HEADER-->", header(lang) + jump).replace("<!--FOOTER-->", footer(lang))
 
 
-REDIRECT = """<!doctype html>
-<html lang="{lang}">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">
-<title>Marathon — {moved}</title>
-<link rel="canonical" href="{to}">
-<meta http-equiv="refresh" content="0; url={to}">
-<script>location.replace({to_js} + location.hash);</script>
-<style>body{{margin:0;padding:48px 16px;font:17px/1.7 "Segoe UI",-apple-system,"PingFang SC","Microsoft YaHei UI",sans-serif;background:#fff;color:#1a1f29}}a{{color:#006ba2}}@media (prefers-color-scheme:dark){{body{{background:#0b1320;color:#e6e9ef}}a{{color:#6cb6e0}}}}</style>
-</head>
-<body>
-<p>{text} <a href="{to}">{to}</a></p>
-</body>
-</html>
-"""
-
-
-def redirects():
-    """marathon.falconshire.com now only forwards each old page to toolkits.falconshire.com/marathon/; the two zips stay
-    so download links already in READMEs and posts keep working."""
-    red = SITE / "redirect" / "out"
-    if red.exists():
-        shutil.rmtree(red)
-    for path in ("", "docs/", "zh/", "zh/docs/", "zh/explained/", "zh/animation/"):
-        zh = path.startswith("zh")
-        to = f"{NEW_HOME}/{path}"
-        d = red / path
-        d.mkdir(parents=True, exist_ok=True)
-        (d / "index.html").write_text(REDIRECT.format(
-            lang="zh-CN" if zh else "en", to=to, to_js=repr(to).replace("'", '"'),
-            moved="已搬到 Falcon 工具箱" if zh else "moved to Falcon Toolkit",
-            text="Marathon 的网站已经搬到" if zh else "The Marathon site has moved to"), encoding="utf-8")
-    for z in ("marathon-skill.zip", "animation-making.zip"):
-        shutil.copy2(OUT / z, red / z)
-
-
 def main():
     if OUT.exists():
         shutil.rmtree(OUT)
@@ -201,7 +162,6 @@ def main():
         text = re.sub(r'(href|src)="/(?!/)', lambda m: f'{m.group(1)}="{BASE}/', text)
         text = text.replace(f'href="{BASE}/?lang=en"', 'href="/?lang=en"').replace(f'class="m-hub" href="{BASE}/"', 'class="m-hub" href="/"')
         p.write_text(text, encoding="utf-8")
-    redirects()
     leftovers = [str(p) for p in OUT.rglob("*.html") if 'href="kit/' in p.read_text(encoding="utf-8")]
     if leftovers:
         sys.exit(f"kit not inlined in: {leftovers}")

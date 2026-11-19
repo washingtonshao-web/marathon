@@ -67,7 +67,7 @@ Requires Python 3.10+ and Claude Code (the lead and the review gate run on Claud
 | `skill/de-ai/` | The de-ai (去AI味) companion skill: `SKILL.md`, `patterns.md`, `scripts/ai_tells.py` |
 | `install/` | `install.cmd` + `install.ps1` (Windows), `install.sh` (macOS/Linux) |
 | `docs/` | The guide in English and Chinese |
-| `site/` | Source of the Marathon pages at toolkits.falconshire.com/marathon/ (built with a design kit that is not part of this repo; the published pages are self-contained). `site/redirect/` is the former address marathon.falconshire.com, which now forwards there and keeps the two zips |
+| `site/` | Source of the Marathon pages at toolkits.falconshire.com/marathon/ (built with a design kit that is not part of this repo; the published pages are self-contained). |
 | `tools/make_zip.py` | Builds the installer zip |
 | `tools/make_animation_zip.py` | Builds `animation-making.zip` (the separate animation-making skill, served at `/zh/animation/`) from a media-pipeline checkout |
 
