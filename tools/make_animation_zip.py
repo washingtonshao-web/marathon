@@ -69,7 +69,7 @@ echo 'Restart Claude Code or Codex, then say: make an animation about ...'
 README = '''动画制作（animation-making）安装说明
 
 用一个话题做出 2-5 分钟、带中文解说的 AI 插画纪录短片。适用于 Claude Code 和 OpenAI Codex。
-详细介绍：https://marathon.falconshire.com/zh/animation/
+详细介绍：https://toolkits.falconshire.com/marathon/zh/animation/
 
 一、安装
 1. 先把这个文件夹放到一个固定位置（例如“文档”），装好后不要再移动：skill 会指向这里。

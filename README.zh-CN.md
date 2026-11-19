@@ -4,7 +4,7 @@
 
 Marathon 是一个免费的 skill，**Claude Code** 和 **OpenAI Codex CLI** 都能用。你描述一个要花几个小时的项目（网页应用、网页游戏、数据网站、带出处的研究报告），你正在对话的会话就成了它的 lead。它先和你定好数字目标，派多个 worker 并行去做，**每一轮由两个不同的模型打分**，一直做到达标、分数不再上涨或预算用完，然后交付，并给你一份决策备忘。整个过程不用你说"继续"。
 
-[**下载一键安装包**](https://marathon.falconshire.com/marathon-skill.zip) · [网站](https://marathon.falconshire.com/zh/) · [中文文档](https://marathon.falconshire.com/zh/docs/) · [English](README.md)
+[**下载一键安装包**](https://toolkits.falconshire.com/marathon/marathon-skill.zip) · [网站](https://toolkits.falconshire.com/marathon/zh/) · [中文文档](https://toolkits.falconshire.com/marathon/zh/docs/) · [English](README.md)
 
 ```text
 ● running · build wave 9 · 47.9 / 57 h
@@ -51,7 +51,7 @@ Gate     Fable 5.2 high + GPT-6.2-Astra high
 
 ## 安装
 
-1. 下载 [marathon-skill.zip](https://marathon.falconshire.com/marathon-skill.zip)（或最新的 [release](https://github.com/washingtonshao-web/marathon/releases/latest)）并解压。
+1. 下载 [marathon-skill.zip](https://toolkits.falconshire.com/marathon/marathon-skill.zip)（或最新的 [release](https://github.com/washingtonshao-web/marathon/releases/latest)）并解压。
 2. Windows：双击 `install.cmd`。macOS / Linux：`sh install.sh`。
 3. 在 Claude Code 或 Codex 里说："用 marathon 做……"
 
@@ -67,7 +67,7 @@ Gate     Fable 5.2 high + GPT-6.2-Astra high
 | `skill/de-ai/` | 去AI味配套技能：`SKILL.md`、`patterns.md`、`scripts/ai_tells.py` |
 | `install/` | `install.cmd` + `install.ps1`（Windows）、`install.sh`（macOS/Linux） |
 | `docs/` | 中英文文档 |
-| `site/` | marathon.falconshire.com 的源码（构建时用到一套不在本仓库里的设计组件；发布出去的网页是自包含的） |
+| `site/` | toolkits.falconshire.com/marathon/ 上 Marathon 页面的源码（构建时用到一套不在本仓库里的设计组件；发布出去的网页是自包含的）。`site/redirect/` 是旧地址 marathon.falconshire.com，现在跳转过去，并保留两个安装包 |
 | `tools/make_zip.py` | 生成安装包 |
 
 ## 许可

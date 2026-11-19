@@ -60,6 +60,10 @@
 .m-lang { font-weight: 700; }
 .k-footer a, .m-steps a { display: inline-block; padding: 11px 9px; margin: 0 -9px; min-width: 44px; text-align: center; }
 .k-brand { min-height: 44px; }
+/* Back to the Falcon Toolkit hub that now hosts these pages. */
+.m-hub { flex: none; display: inline-flex; align-items: center; min-height: 44px; padding-right: var(--k-sp-3); margin-right: var(--k-sp-1); border-right: 1px solid var(--k-line); color: var(--k-ink-2); font-size: var(--k-fs-sm); white-space: nowrap; }
+.m-hub:hover { color: var(--k-ink); }
+@media (max-width: 719px) { .m-hub__long { display: none; } .m-hub { padding-right: var(--k-sp-2); } .m-hub ~ .k-brand .k-brand__name { display: none; } .m-hub ~ .k-brand { margin-right: 0; } }
 .m-doc { max-width: 46em; }
 .m-doc h2 { margin-top: var(--k-sp-6); }
 .m-doc pre { background: var(--k-surface-2); border: 1px solid var(--k-line); padding: 12px 14px; overflow-x: auto; font-size: var(--k-fs-sm); }

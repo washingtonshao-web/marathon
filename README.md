@@ -4,7 +4,7 @@
 
 Marathon is a free skill for **Claude Code** and the **OpenAI Codex CLI**. You describe a project that takes hours — a web app, a browser game, a data site, a sourced research report — and the session you are talking to becomes its lead. It agrees numeric targets with you, sends parallel workers to build, has **two different models grade every round**, and keeps going until the target is met, the score stops improving or the budget runs out. Then it ships and writes you a decision memo. Nobody types "continue".
 
-[**Download the one-click installer**](https://marathon.falconshire.com/marathon-skill.zip) · [Website](https://marathon.falconshire.com) · [Guide](https://marathon.falconshire.com/docs/) · [中文说明](README.zh-CN.md)
+[**Download the one-click installer**](https://toolkits.falconshire.com/marathon/marathon-skill.zip) · [Website](https://toolkits.falconshire.com/marathon/) · [Guide](https://toolkits.falconshire.com/marathon/docs/) · [中文说明](README.zh-CN.md)
 
 ```text
 ● running · build wave 9 · 47.9 / 57 h
@@ -51,7 +51,7 @@ Switch any time in plain words ("workers to Astra", "switch to all Claude").
 
 ## Install
 
-1. Download [marathon-skill.zip](https://marathon.falconshire.com/marathon-skill.zip) (or the latest [release](https://github.com/washingtonshao-web/marathon/releases/latest)) and unzip it.
+1. Download [marathon-skill.zip](https://toolkits.falconshire.com/marathon/marathon-skill.zip) (or the latest [release](https://github.com/washingtonshao-web/marathon/releases/latest)) and unzip it.
 2. Windows: double-click `install.cmd`. macOS / Linux: `sh install.sh`.
 3. In Claude Code or Codex: *"Use marathon to build …"*
 
@@ -67,7 +67,7 @@ Requires Python 3.10+ and Claude Code (the lead and the review gate run on Claud
 | `skill/de-ai/` | The de-ai (去AI味) companion skill: `SKILL.md`, `patterns.md`, `scripts/ai_tells.py` |
 | `install/` | `install.cmd` + `install.ps1` (Windows), `install.sh` (macOS/Linux) |
 | `docs/` | The guide in English and Chinese |
-| `site/` | Source of marathon.falconshire.com (built with a design kit that is not part of this repo; the published pages are self-contained) |
+| `site/` | Source of the Marathon pages at toolkits.falconshire.com/marathon/ (built with a design kit that is not part of this repo; the published pages are self-contained). `site/redirect/` is the former address marathon.falconshire.com, which now forwards there and keeps the two zips |
 | `tools/make_zip.py` | Builds the installer zip |
 | `tools/make_animation_zip.py` | Builds `animation-making.zip` (the separate animation-making skill, served at `/zh/animation/`) from a media-pipeline checkout |
 

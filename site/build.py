@@ -1,6 +1,9 @@
-"""Build marathon.falconshire.com into site/out/: landing pages (EN, 中文), guides from docs/*.md, the installer zips (Marathon, animation-making).
+"""Build the Marathon pages into site/out/: landing pages (EN, 中文), guides from docs/*.md, the installer zips (Marathon, animation-making).
+They are served at toolkits.falconshire.com/marathon/ (the Falcon Toolkit page build copies site/out there with
+MARATHON_BASE=/marathon). marathon.falconshire.com, the former address, keeps only redirect pages and the two zips,
+built into site/redirect/out/ (published from the newest version tag by the daily auto-publish).
 
-    SITE_KIT_APPLY=<path to the design kit's apply_kit.py> python site/build.py
+    SITE_KIT_APPLY=<path to the design kit's apply_kit.py> [MARATHON_BASE=/marathon] python site/build.py
 """
 import os, re, shutil, subprocess, sys
 from pathlib import Path
@@ -12,6 +15,9 @@ REPO = SITE.parent
 OUT = SITE / "out"
 KIT = Path(os.environ.get("SITE_KIT_APPLY", "apply_kit.py"))  # the design kit's inliner (inlines CSS/JS into each page)
 GITHUB = "https://github.com/washingtonshao-web/marathon"
+BASE = os.environ.get("MARATHON_BASE", "/marathon").rstrip("/")  # where the pages are served on toolkits.falconshire.com
+HUB = "https://toolkits.falconshire.com"
+NEW_HOME = HUB + "/marathon"
 ICON = ("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23b4531f'/%3E"
         "%3Ctext x='16' y='23' font-family='Segoe UI,Arial' font-size='20' font-weight='700' fill='white' text-anchor='middle'%3EM%3C/text%3E%3C/svg%3E")
 
@@ -29,7 +35,10 @@ FOOT = {
 def header(lang):
     home = "/" if lang == "en" else "/zh/"
     links = "".join(f'<a href="{h}"{" class=\"m-lang\" lang=\"zh-CN\"" if t == "中文" else (" class=\"m-lang\" lang=\"en\"" if t == "English" else (" class=\"m-guide\"" if h.endswith(("docs/", "animation/")) else ""))}>{t}</a>' for h, t in NAV[lang])
+    hub = "/" if BASE else HUB + "/"
+    back = ('&larr; <span class="m-hub__long">Falcon </span>Toolkit' if lang == "en" else '&larr; <span class="m-hub__long">Falcon </span>工具箱')
     return (f'<header class="k-header"><div class="k-page k-header__in">'
+            f'<a class="m-hub" href="{hub}{"" if lang == "zh" else "?lang=en"}">{back}</a>'
             f'<a class="k-brand" href="{home}"><span class="k-brand__mark">M</span><span class="k-brand__name">Marathon</span></a>'
             f'<nav class="k-nav">{links}</nav></div></header>')
 
@@ -128,6 +137,44 @@ def doc_page(md_path: Path, lang: str, dl_href: str = "/marathon-skill.zip", dl:
     return html.replace("<!--HEADER-->", header(lang) + jump).replace("<!--FOOTER-->", footer(lang))
 
 
+REDIRECT = """<!doctype html>
+<html lang="{lang}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Marathon — {moved}</title>
+<link rel="canonical" href="{to}">
+<meta http-equiv="refresh" content="0; url={to}">
+<script>location.replace({to_js} + location.hash);</script>
+<style>body{{margin:0;padding:48px 16px;font:17px/1.7 "Segoe UI",-apple-system,"PingFang SC","Microsoft YaHei UI",sans-serif;background:#fff;color:#1a1f29}}a{{color:#006ba2}}@media (prefers-color-scheme:dark){{body{{background:#0b1320;color:#e6e9ef}}a{{color:#6cb6e0}}}}</style>
+</head>
+<body>
+<p>{text} <a href="{to}">{to}</a></p>
+</body>
+</html>
+"""
+
+
+def redirects():
+    """marathon.falconshire.com now only forwards each old page to toolkits.falconshire.com/marathon/; the two zips stay
+    so download links already in READMEs and posts keep working."""
+    red = SITE / "redirect" / "out"
+    if red.exists():
+        shutil.rmtree(red)
+    for path in ("", "docs/", "zh/", "zh/docs/", "zh/explained/", "zh/animation/"):
+        zh = path.startswith("zh")
+        to = f"{NEW_HOME}/{path}"
+        d = red / path
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "index.html").write_text(REDIRECT.format(
+            lang="zh-CN" if zh else "en", to=to, to_js=repr(to).replace("'", '"'),
+            moved="已搬到 Falcon 工具箱" if zh else "moved to Falcon Toolkit",
+            text="Marathon 的网站已经搬到" if zh else "The Marathon site has moved to"), encoding="utf-8")
+    for z in ("marathon-skill.zip", "animation-making.zip"):
+        shutil.copy2(OUT / z, red / z)
+
+
 def main():
     if OUT.exists():
         shutil.rmtree(OUT)
@@ -149,6 +196,12 @@ def main():
         shutil.copy2(z, OUT / zname)
     r = subprocess.run([sys.executable, str(KIT), str(OUT)], capture_output=True, text=True, encoding="utf-8", stdin=subprocess.DEVNULL)
     print(r.stdout.strip()[-400:], r.stderr.strip()[-400:])
+    for p in OUT.rglob("*.html"):  # site-absolute links move under BASE (toolkits.falconshire.com/marathon/...)
+        text = p.read_text(encoding="utf-8")
+        text = re.sub(r'(href|src)="/(?!/)', lambda m: f'{m.group(1)}="{BASE}/', text)
+        text = text.replace(f'href="{BASE}/?lang=en"', 'href="/?lang=en"').replace(f'class="m-hub" href="{BASE}/"', 'class="m-hub" href="/"')
+        p.write_text(text, encoding="utf-8")
+    redirects()
     leftovers = [str(p) for p in OUT.rglob("*.html") if 'href="kit/' in p.read_text(encoding="utf-8")]
     if leftovers:
         sys.exit(f"kit not inlined in: {leftovers}")
