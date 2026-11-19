@@ -10,7 +10,7 @@ Read [profiles](references/profiles.md), chosen mode card and [preflight](prefli
 
 When the request points to an existing site, app or data set, treat it as reference only: write what the ideal version would be before reading the old one, use the old one as parts and as the baseline, and re-check every number taken from it.
 
-Propose the format (--format, or none), the benchmark, scope, budget, output and what to reuse. Defaults: codex (GPT-6.1-Sol high; Astra optional) or claude (Sonnet), 12 h/balanced, reference-only inputs, output in the user's language; private unless the user asks to publish, no paid tools. Classic unchanged; biology: sonnet+astra. Omit settled choices.
+Propose the format (--format, or none), the benchmark, scope, budget, output and what to reuse. Defaults: codex (GPT-6.2-Sol high; Astra optional) or claude (Sonnet), 12 h/balanced, reference-only inputs, output in the user's language; private unless the user asks to publish, no paid tools. Classic unchanged; biology: sonnet+astra. Omit settled choices.
 
 ## Ask: intake, phase ends, decision memo
 

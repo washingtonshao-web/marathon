@@ -7,7 +7,7 @@ codex_worker.py run <dir> --id W12 --brief .tmp/briefs/W12.md --class build --mi
 codex_worker.py steer <dir> --id W12 "correction" --minutes 30
 ~~~
 
-New codex: GPT-6.1-Sol high → GPT-6-Astra high → Claude Sonnet 5.5; `set <dir> workers=astra` opts in. STATE wins; gates default to Astra high.
+New codex: GPT-6.2-Sol high → GPT-6.2-Astra high → Claude Sonnet 5.5; `set <dir> workers=astra` opts in. STATE wins; gates default to Astra high.
 
 Classes: build/ui/test/data/research/ops/gate; gate needs --sha (gate.md). --model overrides. --brief: caller-relative/absolute; --out: project-relative, no escape/directories/workers.csv/.tmp/reports/. Repeatable --image on run. IDs: letters/digits/_/-, consistent case, unique/task.
 

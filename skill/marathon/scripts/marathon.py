@@ -85,12 +85,34 @@ FORECAST_FIELDS = ["date", "after_round", "hours", "next", "end", "chance"]
 OVERVIEW_GLOBS = [str(root / "*" / "STATE.md") for root in ([Path(os.environ["MARATHON_REPOS_ROOT"])] if os.environ.get("MARATHON_REPOS_ROOT") else [Path.home() / "repos", Path.cwd().parent])]
 # Worker models the user can name (decided 2026-10-19): Codex models run high unless an effort is given ("astra-xhigh");
 # "sonnet" / "opus" mean the current Claude models. Default workers: sol61; fallback chain: astra, then sonnet.
-MODEL_ALIASES = {"astra": ("codex", "gpt-6-astra", "high"), "sol61": ("codex", "gpt-6.1-sol", "high"),
-                 "sol": ("codex", "gpt-6-sol", "high"), "luna": ("codex", "gpt-6-luna", "high"),
+# 2026-11-19: GPT ids come from an optional models/roles.json (roles astra / sol / luna), so a new release is a one-line
+# change there; "sol" and "sol61" both mean the sol role. ROLES_FALLBACK mirrors roles.json for a copy without it.
+ROLES_FALLBACK = {"astra": ("gpt-6.2-astra", "high"), "sol": ("gpt-6.2-sol", "high"), "luna": ("gpt-6-luna", "high"),
+                  "opus": ("claude-opus-5-5", "high"), "sonnet": ("claude-sonnet-5-5", "high"),
+                  "fable": ("claude-fable-5-2", "high")}
+
+
+def role_models() -> dict[str, str]:
+    """Role -> model id from models/roles.json (a parent folder, ~/.claude/models or ~/.codex/models), else ROLES_FALLBACK."""
+    out = {k: v[0] for k, v in ROLES_FALLBACK.items()}
+    for d in [*Path(__file__).resolve().parents, Path.home() / ".claude", Path.home() / ".codex"]:
+        try:
+            roles = json.loads((d / "models" / "roles.json").read_text(encoding="utf-8"))["roles"]
+            return out | {k: r["model"] for k, r in roles.items() if isinstance(r, dict) and isinstance(r.get("model"), str)}
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            continue
+    return out
+
+
+ROLE_MODEL = role_models()
+# Efforts are marathon's own (high for every Codex worker), not roles.json's defaultEffort.
+MODEL_ALIASES = {"astra": ("codex", ROLE_MODEL["astra"], "high"), "sol61": ("codex", ROLE_MODEL["sol"], "high"),
+                 "sol": ("codex", ROLE_MODEL["sol"], "high"), "luna": ("codex", ROLE_MODEL["luna"], "high"),
                  "sonnet": ("claude", "sonnet", ""), "opus": ("claude", "opus", ""), "fable": ("claude", "fable", ""),
                  "haiku": ("claude", "haiku", "")}
 SPOKEN = {"6.1 sol": "sol61", "6.1sol": "sol61", "gpt-6.1-sol": "sol61", "6.1 " + "sonnet": "sol61", "sol 6.1": "sol61",
           "gpt-6-astra": "astra", "gpt-6-sol": "sol", "gpt-6-luna": "luna", "sonnet 5.5": "sonnet", "opus 5.5": "opus"}
+SPOKEN.update({ROLE_MODEL["astra"]: "astra", ROLE_MODEL["sol"]: "sol61", ROLE_MODEL["luna"]: "luna"})
 CODEX_BACKENDS = ("subscription", "api")
 DEFAULT_CODEX_BACKENDS = "subscription"
 SPOKEN.update({"api": "api", "subscription": "subscription", "订阅": "subscription", "local": "subscription", "本地": "subscription"})
@@ -116,7 +138,7 @@ PROFILES = {
     "claude": {"name": "All Claude", "about": "Claude only: thin rotating Opus lead, Sonnet workers, Fable gate. Workers stay on Claude quota (~89% of a run's Claude tokens)",
                "keys": {"profile": "claude", "lead_style": "thin", "rotate_at": "300", "workers": "sonnet", "worker_fallback": "opus",
                         "gate": "fable", "astra_wait": "0", "summary_words": "300"}},
-    "codex": {"name": "Codex workers", "about": "default: thin rotating lead (Claude or Codex host), GPT-6.1-Sol high workers (Astra optional), Fable + Astra gate",
+    "codex": {"name": "Codex workers", "about": "default: thin rotating lead (Claude or Codex host), GPT-6.2-Sol high workers (Astra optional), Fable + Astra gate",
               "keys": {"profile": "codex", "lead_style": "thin", "rotate_at": "300", "workers": "sol61", "worker_fallback": "astra,sonnet",
                        "gate": "fable+astra", "astra_wait": "10", "summary_words": "300"}},
 }
@@ -176,6 +198,9 @@ def cmd_backends(a) -> None:
 
 MODEL_NICE ={"gpt-6-astra": "GPT-6-Astra", "gpt-6.1-sol": "GPT-6.1-Sol", "gpt-6-sol": "GPT-6-Sol", "gpt-6-luna": "GPT-6-Luna",
               "sonnet": "Claude Sonnet 5.5", "opus": "Claude Opus 5.5", "fable": "Claude Fable 5.2", "haiku": "Claude Haiku 5.5"}
+MODEL_NICE.update({m: re.sub(r"^gpt-(\d+(?:\.\d+)?)-([a-z]+)$", lambda g: f"GPT-{g[1]}-{g[2].title()}", m)
+                   for m in ROLE_MODEL.values() if m.startswith("gpt-")})  # current role models, e.g. GPT-6.2-Astra
+CODEX_LEAD = MODEL_NICE[MODEL_ALIASES["astra"][1]] + " high (Codex)"
 
 
 def describe_model(name: str) -> str:
@@ -205,7 +230,7 @@ def run_config(fm: dict, short: bool = False) -> list[str]:
     prof = PROFILES.get(prof_key, PROFILES[DEFAULT_PROFILE])
     chain = worker_chain(fm)
     codex_host = bool(os.environ.get("CODEX_THREAD_ID"))
-    lead = "GPT-6-Astra high (Codex)" if codex_host else "Claude Opus 5.5"
+    lead = CODEX_LEAD if codex_host else "Claude Opus 5.5"
     lead = f"verified {fm['lead_verified']}" if fm.get("lead_verified") else f"requested {lead}"
     thin = run_value(fm, "lead_style") != "hands-on"
     rot = int(run_value(fm, "rotate_at") or 0)
@@ -233,8 +258,11 @@ def run_config(fm: dict, short: bool = False) -> list[str]:
 
 
 def resolve_model(name: str) -> tuple[str, str, str]:
-    """'astra' / 'astra-xhigh' / '6.1 Sol' / 'sonnet' -> (agent, model, effort)."""
+    """'astra' / 'astra-xhigh' / '6.1 Sol' / 'sonnet' -> (agent, model, effort).
+    A full versioned id ('gpt-6-astra') stays itself, so old ledger rows keep the model that ran; aliases follow roles.json."""
     n = name.strip().lower()
+    if (m := re.fullmatch(r"gpt-\d+(?:\.\d+)?-(astra|sol|luna)", n)):
+        return "codex", n, MODEL_ALIASES[m[1]][2]
     n = SPOKEN.get(n, n)
     base, _, effort = n.partition("-")
     if base not in MODEL_ALIASES or effort not in ("", "low", "medium", "high", "xhigh", "max"):
@@ -259,9 +287,10 @@ def chain_from(fm: dict, explicit_model: str | None = None) -> list[str]:
     chain = worker_chain(fm)
     if not explicit_model:
         return chain
-    model = resolve_model(explicit_model)
+    role = lambda r: (r[0], model_role(r[1]), r[2])  # gpt-6.1-sol and sol61 (gpt-6.2-sol) are one step: the sol role
+    model = role(resolve_model(explicit_model))
     for i, name in enumerate(chain):
-        if resolve_model(name) == model:
+        if role(resolve_model(name)) == model:
             return [explicit_model] + chain[i + 1:]
     return [explicit_model] + [n for n in chain if resolve_model(n)[0] == "claude"]
 
@@ -1317,7 +1346,7 @@ def models_lines(d: Path, fm: dict, rows: list[dict], usage: dict | None) -> lis
     if lead:
         out.append("Lead     " + " · ".join(model_name(m, True) for m in sorted(lead, key=lambda m: -lead[m]["runs"])))
     else:
-        out.append("Lead     " + (fm.get("lead_verified") or ("GPT-6-Astra high (Codex)" if os.environ.get("CODEX_THREAD_ID") else "Claude Opus 5.5")
+        out.append("Lead     " + (fm.get("lead_verified") or (CODEX_LEAD if os.environ.get("CODEX_THREAD_ID") else "Claude Opus 5.5")
                                   + " (requested; no Claude transcript)"))
     ws = read_workers(d)
     jobs = [r for r in ws if r.get("class") != "gate" and not (r.get("note") or "").startswith("bake-off ")]
@@ -1338,7 +1367,7 @@ def models_lines(d: Path, fm: dict, rows: list[dict], usage: dict | None) -> lis
     for key, g in sorted(groups.items(), key=lambda kv: -kv[1]["runs"]):
         name, eff = key.split("/")
         label = model_name(name) + ("" if eff == "unspecified" else " " + eff)
-        out.append(f"  {label:<17}{g['runs']:>3} · {g['min'] / 60:.1f} h" + (" fallback" if primary and name != primary else ""))
+        out.append(f"  {label:<17}{g['runs']:>3} · {g['min'] / 60:.1f} h" + (" fallback" if primary and model_role(name) != model_role(primary) else ""))
     if running or blank:
         out.append("  " + " · ".join(x for x in (f"{running} running" if running else "", f"{blank} ended, no model recorded" if blank else "") if x))
     routes: dict = {}
@@ -1354,7 +1383,7 @@ def models_lines(d: Path, fm: dict, rows: list[dict], usage: dict | None) -> lis
     runs: list = []   # consecutive rounds with the same reviewers
     for r in rows:
         labels = [x for x in (r.get("reviewers") or "").split("+") if x and x != "lead-ruling" and not x.startswith(("missing:", "astra-pending"))]
-        who = " + ".join(re.sub(r"GPT-6-(\w+)", r"\1", model_name(x)) for x in labels) or "?"   # Astra, not GPT-6-Astra: fits 40 columns
+        who = " + ".join(re.sub(r"GPT-\d+(?:\.\d+)?-(\w+)", r"\1", model_name(x)) for x in labels) or "?"   # Astra, not GPT-6.2-Astra: fits 40 columns
         if runs and runs[-1][0] == who:
             runs[-1][1].append(r["round"])
         else:
@@ -2620,6 +2649,12 @@ def model_key(r: dict) -> str:
     except SystemExit:
         pass
     return f"{name}/{effort or 'unspecified'}"
+
+
+def model_role(model: str) -> str:
+    """'gpt-6-astra' / 'gpt-6.2-astra' -> 'astra'; other names unchanged. Old ledger rows keep their id but count as their role."""
+    m = re.fullmatch(r"gpt-\d+(?:\.\d+)?-(astra|sol|luna)", model or "")
+    return m[1] if m else model
 
 
 def assessed_worker(r: dict) -> bool:

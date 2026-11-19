@@ -35,8 +35,8 @@
 Progress ████████████░░░░░░░░ 58%
 Targets  14 / 22 met
 Score    73.5 → 76.5 → 77.0   pass 75
-Workers  3 running · GPT-6.1-Sol high
-Gate     Fable 5.2 high + GPT-6-Astra high
+Workers  3 running · GPT-6.2-Sol high
+Gate     Fable 5.2 high + GPT-6.2-Astra high
 Next     inventory walk · UI audit</pre>
       <figcaption>Simplified from a real business-system run (57-hour budget, 47.9 h used). Ask “progress” at any time for a board like this plus the lead's own assessment.</figcaption>
     </figure>
@@ -75,7 +75,7 @@ Next     inventory walk · UI audit</pre>
         <div class="m-feat"><dt>Asks once, then works</dt><dd>At most five questions at kickoff, each with a default already selected. Answer with one click, or walk away: after 10 minutes it starts on the defaults.</dd></div>
         <div class="m-feat"><dt>Done means you would use it</dt><dd>The charter fixes a benchmark, numeric targets and a pass mark, but the score is only the floor: done means neither reviewer lists a serious problem and both would use the result as is.</dd></div>
         <div class="m-feat"><dt>Parallel workers</dt><dd>Several bounded workers at a time (four in the default balanced mode) write code, research, run tests or polish pages. Each returns a short summary; full reports go to files.</dd></div>
-        <div class="m-feat"><dt>Two-model review gate</dt><dd>Claude Fable 5.2 and GPT-6-Astra grade the same frozen commit independently. Big disagreements are ruled on with evidence, not averaged away.</dd></div>
+        <div class="m-feat"><dt>Two-model review gate</dt><dd>Claude Fable 5.2 and GPT-6.2-Astra grade the same frozen commit independently. Big disagreements are ruled on with evidence, not averaged away.</dd></div>
         <div class="m-feat"><dt>Never needs “continue”</dt><dd>A stop hook keeps the run going until a stop rule holds: target met, three rounds without real gains, budget used, or something only you can do.</dd></div>
         <div class="m-feat"><dt>Survives long contexts</dt><dd>Progress lives in STATE.md, not in memory. A fresh lead takes over at a quiet point and picks up exactly where the last one stopped.</dd></div>
         <div class="m-feat"><dt>Counts the cost</dt><dd>Every worker gets a ledger row. <code>marathon.py usage</code> prices Claude tokens by type, so you see where the money goes.</dd></div>
@@ -90,14 +90,14 @@ Next     inventory walk · UI audit</pre>
         <thead><tr><th></th><th>Codex workers (default)</th><th>All Claude</th></tr></thead>
         <tbody>
           <tr><td>Lead</td><td colspan="2">The session you talk to: Claude Opus in Claude Code, or your model in Codex</td></tr>
-          <tr><td>Workers</td><td data-label="Codex workers (default)">GPT-6.1-Sol high → GPT-6-Astra high → Claude Sonnet</td><td data-label="All Claude">Claude Sonnet → Claude Opus</td></tr>
+          <tr><td>Workers</td><td data-label="Codex workers (default)">GPT-6.2-Sol high → GPT-6.2-Astra high → Claude Sonnet</td><td data-label="All Claude">Claude Sonnet → Claude Opus</td></tr>
           <tr><td>Review gate</td><td data-label="Codex workers (default)">Fable 5.2 high + Astra high, every round</td><td data-label="All Claude">Fable every round, Astra added at the final gate</td></tr>
           <tr><td>Whose quota</td><td data-label="Codex workers (default)">Workers on your ChatGPT/Codex plan or your own API endpoint; lead and Fable on Claude</td><td data-label="All Claude">Almost everything on Claude</td></tr>
           <tr><td>Pick it when</td><td data-label="Codex workers (default)">Most long projects</td><td data-label="All Claude">No Codex, or the task needs Claude-only tools</td></tr>
         </tbody>
       </table></div>
       <dl class="m-modes-phone"><div class="m-mode"><dt>Lead</dt><dd><span class="m-mode__label">Codex workers (default)</span>The session you talk to: Claude Opus in Claude Code, or your model in Codex</dd><dd><span class="m-mode__label">All Claude</span>The session you talk to: Claude Opus in Claude Code, or your model in Codex</dd></div>
-<div class="m-mode"><dt>Workers</dt><dd><span class="m-mode__label">Codex workers (default)</span>GPT-6.1-Sol high → GPT-6-Astra high → Claude Sonnet</dd><dd><span class="m-mode__label">All Claude</span>Claude Sonnet → Claude Opus</dd></div>
+<div class="m-mode"><dt>Workers</dt><dd><span class="m-mode__label">Codex workers (default)</span>GPT-6.2-Sol high → GPT-6.2-Astra high → Claude Sonnet</dd><dd><span class="m-mode__label">All Claude</span>Claude Sonnet → Claude Opus</dd></div>
 <div class="m-mode"><dt>Review gate</dt><dd><span class="m-mode__label">Codex workers (default)</span>Fable 5.2 high + Astra high, every round</dd><dd><span class="m-mode__label">All Claude</span>Fable every round, Astra added at the final gate</dd></div>
 <div class="m-mode"><dt>Whose quota</dt><dd><span class="m-mode__label">Codex workers (default)</span>Workers on your ChatGPT/Codex plan or your own API endpoint; lead and Fable on Claude</dd><dd><span class="m-mode__label">All Claude</span>Almost everything on Claude</dd></div>
 <div class="m-mode"><dt>Pick it when</dt><dd><span class="m-mode__label">Codex workers (default)</span>Most long projects</dd><dd><span class="m-mode__label">All Claude</span>No Codex, or the task needs Claude-only tools</dd></div></dl>

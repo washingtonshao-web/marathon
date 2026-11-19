@@ -123,7 +123,7 @@ class PackageTests(unittest.TestCase):
             for args in (['init', str(project), '--type', 'research', '--title', 'test'], ['handoff', str(project), '--why', 'test rotation']):
                 subprocess.run(cli + args, env=env, capture_output=True, check=True)
             self.assertIn('- Resume prompt: Resume marathon', (project / 'STATE.md').read_text(encoding='utf-8'))
-            self.assertEqual(('codex', 'gpt-6.1-sol', 'high'), module.resolve_model('6.1 ' + 'Sonnet'))
+            self.assertEqual(('codex', 'gpt-6.2-sol', 'high'), module.resolve_model('6.1 ' + 'Sonnet'))
             self.assertEqual('claude', module.SPOKEN_PROFILES['全 ' + 'cloud'])
 
     def test_installed_hook(self):

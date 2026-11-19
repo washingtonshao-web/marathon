@@ -8,7 +8,7 @@ Workers never commit, push or start reviewers. Only an ops worker performs a liv
 
 To drive or measure a page in a browser, `marathon.py lock <dir> browser --owner <id>`; if held, do other work (research reads need no lease). Close it and release with --release. The lease is per PC with a 30-minute TTL; renew with the same owner or --ttl MIN, and never steal a live lease. Heavy jobs: one at a time.
 
-`marathon.py config <dir> --models` shows the STATE chain; new codex projects default to GPT-6.1-Sol high → GPT-6-Astra high → Claude Sonnet 5.5, and `set <dir> workers=astra` opts into Astra. [codex-workers](references/codex-workers.md) covers launches. Claude leads use native agents; Codex leads use the [bridge](references/codex.md). Steer weak output.
+`marathon.py config <dir> --models` shows the STATE chain; new codex projects default to GPT-6.2-Sol high → GPT-6.2-Astra high → Claude Sonnet 5.5, and `set <dir> workers=astra` opts into Astra. [codex-workers](references/codex-workers.md) covers launches. Claude leads use native agents; Codex leads use the [bridge](references/codex.md). Steer weak output.
 
 Every worker has a row in audits/workers.csv; `backend` is the actual Codex backend (empty in old rows = subscription). The wrapper records its own workers; record native and bridge workers yourself:
 

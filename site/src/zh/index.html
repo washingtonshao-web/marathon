@@ -35,8 +35,8 @@
 Progress ████████████░░░░░░░░ 58%
 Targets  14 / 22 met
 Score    73.5 → 76.5 → 77.0   pass 75
-Workers  3 running · GPT-6.1-Sol high
-Gate     Fable 5.2 high + GPT-6-Astra high
+Workers  3 running · GPT-6.2-Sol high
+Gate     Fable 5.2 high + GPT-6.2-Astra high
 Next     inventory walk · UI audit</pre>
       <figcaption>根据一次真实的业务系统项目简化（预算 57 小时，已用 47.9 小时）。随时问一句“进度”，就能看到这样的面板，以及 lead 自己的判断。</figcaption>
     </figure>
@@ -75,7 +75,7 @@ Next     inventory walk · UI audit</pre>
         <div class="m-feat"><dt>只问一次，然后开干</dt><dd>开工时最多 5 个问题，默认值已经选好，点一次确认就行；你不在时，10 分钟后按默认开跑。</dd></div>
         <div class="m-feat"><dt>做完 = 你愿意直接用</dt><dd>开工前写下对标对象、数字目标和及格线，但分数只是最低要求：两位评审都没有严重问题、都说会直接拿去用，才算做完。</dd></div>
         <div class="m-feat"><dt>并行的 worker</dt><dd>同时派多个 worker（默认的 balanced 模式最多 4 个）写代码、做研究、跑测试、改页面。每个只交回一段简短总结，完整报告存成文件。</dd></div>
-        <div class="m-feat"><dt>双模型评审闸门</dt><dd>Claude Fable 5.2 和 GPT-6-Astra 独立给同一个冻结版本打分；分歧大时按证据裁决，而不是取平均。</dd></div>
+        <div class="m-feat"><dt>双模型评审闸门</dt><dd>Claude Fable 5.2 和 GPT-6.2-Astra 独立给同一个冻结版本打分；分歧大时按证据裁决，而不是取平均。</dd></div>
         <div class="m-feat"><dt>不用说“继续”</dt><dd>停止 hook 让它一直跑下去，直到满足停止条件：达标、连续三轮没有实质进步、预算用完，或者只有你能处理的事。</dd></div>
         <div class="m-feat"><dt>不怕上下文变长</dt><dd>进度存在 STATE.md 里，不靠记忆。新 lead 在空档接班，从上一个停下的地方继续。</dd></div>
         <div class="m-feat"><dt>花费算得清</dt><dd>每个 worker 记一行账；<code>marathon.py usage</code> 按 token 类型和价格算出 Claude 花费，钱花在哪一目了然。</dd></div>
@@ -90,14 +90,14 @@ Next     inventory walk · UI audit</pre>
         <thead><tr><th></th><th>Codex worker 模式（默认）</th><th>全 Claude</th></tr></thead>
         <tbody>
           <tr><td>lead</td><td colspan="2">你对话的那个会话：Claude Code 里是 Claude Opus，Codex 里是你的 Codex 模型</td></tr>
-          <tr><td>worker</td><td data-label="Codex worker 模式（默认）">GPT-6.1-Sol high → GPT-6-Astra high → Claude Sonnet</td><td data-label="全 Claude">Claude Sonnet → Claude Opus</td></tr>
+          <tr><td>worker</td><td data-label="Codex worker 模式（默认）">GPT-6.2-Sol high → GPT-6.2-Astra high → Claude Sonnet</td><td data-label="全 Claude">Claude Sonnet → Claude Opus</td></tr>
           <tr><td>评审闸门</td><td data-label="Codex worker 模式（默认）">每轮 Fable 5.2 high + Astra high</td><td data-label="全 Claude">每轮 Fable，最终轮再加 Astra</td></tr>
           <tr><td>花谁的额度</td><td data-label="Codex worker 模式（默认）">worker 用你的 ChatGPT/Codex 订阅或你自己的 API；lead 和 Fable 用 Claude</td><td data-label="全 Claude">几乎全部用 Claude</td></tr>
           <tr><td>什么时候选</td><td data-label="Codex worker 模式（默认）">大多数长项目</td><td data-label="全 Claude">没有 Codex，或任务离不开只有 Claude 才有的工具</td></tr>
         </tbody>
       </table></div>
       <dl class="m-modes-phone"><div class="m-mode"><dt>lead</dt><dd><span class="m-mode__label">Codex worker 模式（默认）</span>你对话的那个会话：Claude Code 里是 Claude Opus，Codex 里是你的 Codex 模型</dd><dd><span class="m-mode__label">全 Claude</span>你对话的那个会话：Claude Code 里是 Claude Opus，Codex 里是你的 Codex 模型</dd></div>
-<div class="m-mode"><dt>worker</dt><dd><span class="m-mode__label">Codex worker 模式（默认）</span>GPT-6.1-Sol high → GPT-6-Astra high → Claude Sonnet</dd><dd><span class="m-mode__label">全 Claude</span>Claude Sonnet → Claude Opus</dd></div>
+<div class="m-mode"><dt>worker</dt><dd><span class="m-mode__label">Codex worker 模式（默认）</span>GPT-6.2-Sol high → GPT-6.2-Astra high → Claude Sonnet</dd><dd><span class="m-mode__label">全 Claude</span>Claude Sonnet → Claude Opus</dd></div>
 <div class="m-mode"><dt>评审闸门</dt><dd><span class="m-mode__label">Codex worker 模式（默认）</span>每轮 Fable 5.2 high + Astra high</dd><dd><span class="m-mode__label">全 Claude</span>每轮 Fable，最终轮再加 Astra</dd></div>
 <div class="m-mode"><dt>花谁的额度</dt><dd><span class="m-mode__label">Codex worker 模式（默认）</span>worker 用你的 ChatGPT/Codex 订阅或你自己的 API；lead 和 Fable 用 Claude</dd><dd><span class="m-mode__label">全 Claude</span>几乎全部用 Claude</dd></div>
 <div class="m-mode"><dt>什么时候选</dt><dd><span class="m-mode__label">Codex worker 模式（默认）</span>大多数长项目</dd><dd><span class="m-mode__label">全 Claude</span>没有 Codex，或任务离不开只有 Claude 才有的工具</dd></div></dl>

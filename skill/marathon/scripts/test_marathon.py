@@ -363,7 +363,7 @@ check("reviews: a key set by the lead is marked ruling", "· 1 key ruled" in vis
 check("reviews: none for a round without reviewer files", M.review_table(RV, dict(RV_ROW, round="7")) == ([], []))
 check("model names from ledger, transcripts and reviewer labels",
       [M.model_name(x) for x in ("gpt-6-astra", "gpt-6.1-sol", "claude-opus-5-5", "opus-5.5-xhigh", "astra-high", "sol61", "opus")]
-      == ["GPT-6-Astra", "GPT-6.1-Sol", "Opus 5.5", "Opus 5.5 xhigh", "GPT-6-Astra high", "GPT-6.1-Sol", "Opus 5.5"]
+      == ["GPT-6-Astra", "GPT-6.1-Sol", "Opus 5.5", "Opus 5.5 xhigh", "GPT-6.2-Astra high", "GPT-6.2-Sol", "Opus 5.5"]
       and M.model_name("claude-fable-5-1", True) == "Claude Fable 5.1")
 WF = "id,started,ended,agent,model,effort,class,status,minutes,note,backend"
 (RV / "audits" / "workers.csv").write_text("\n".join([WF, "A1,x,y,codex,gpt-6-astra,high,data,done,60,,api", "A2,x,y,codex,gpt-6-astra,high,data,partial,30,,api",
@@ -456,8 +456,16 @@ js = json.loads(m("overview", "--json"))
 check("overview --json: one entry per project, scores as [round, total]", any(x["name"] == "p2" and x["scores"][-1] == [6, 65.0] for x in js), js)
 
 # ---- worker models, production quality, usage, handoff (2026-10-19) ----
-check("models: spoken '6.1 Sol' is GPT-6.1-Sol high", m("models", "--name", "6.1 Sol").strip() == "codex gpt-6.1-sol high")
-check("models: astra-xhigh keeps the effort", m("models", "--name", "astra-xhigh").strip() == "codex gpt-6-astra xhigh")
+check("models: spoken '6.1 Sol' is the sol role, GPT-6.2-Sol high", m("models", "--name", "6.1 Sol").strip() == "codex gpt-6.2-sol high")
+check("models: astra-xhigh keeps the effort", m("models", "--name", "astra-xhigh").strip() == "codex gpt-6.2-astra xhigh")
+# 2026-11-19: GPT ids come from models/roles.json; the fallback copy matches it; a versioned id stays itself
+_roles = next((json.loads(p.read_text(encoding="utf-8")) for d in Path(M.__file__).resolve().parents if (p := d / "models" / "roles.json").exists()), None)
+check("models: ROLES_FALLBACK matches roles.json", _roles is None or
+      {k: (r["model"], r["defaultEffort"]) for k, r in _roles["roles"].items()} == M.ROLES_FALLBACK, _roles)
+check("models: aliases follow the roles, efforts stay high", [M.resolve_model(n) for n in ("astra", "sol61", "sol", "luna")] ==
+      [("codex", M.ROLE_MODEL["astra"], "high"), ("codex", M.ROLE_MODEL["sol"], "high"), ("codex", M.ROLE_MODEL["sol"], "high"),
+       ("codex", M.ROLE_MODEL["luna"], "high")])
+check("models: a versioned id from an old ledger is kept", M.resolve_model("gpt-6-astra") == ("codex", "gpt-6-astra", "high"))
 check("models: sonnet is the Claude model", m("models", "--name", "sonnet").strip() == "claude sonnet")
 m("models", "--name", "gpt-9", code=1)
 out = m("models", Q)
@@ -502,7 +510,7 @@ check("profile=全 Claude sets the Claude bundle and prints the config", "profil
       "gate: fable" in st and "Run config · All Claude" in out and "Claude Sonnet 5.5" in out, out)
 check("a run-config change is logged under Decisions", "run config: " in st)
 out = m("set", Q, "profile=codex", "gate=opus", "summary_words=500")
-check("keys named with a profile override its bundle", "Gate requested: Opus 5.5 xhigh (final adds Astra)" in out and "≤500 words" in out and "GPT-6-Astra high" in out, out)
+check("keys named with a profile override its bundle", "Gate requested: Opus 5.5 xhigh (final adds Astra)" in out and "≤500 words" in out and "GPT-6.2-Astra high" in out, out)
 m("set", Q, "gate=everyone", code=1)
 m("set", Q, "astra_wait=soon", code=1)
 m("set", Q, "profile=codex")
@@ -1349,7 +1357,7 @@ check("S2 alias uses codex defaults even for raw mappings", M.worker_chain({"pro
 out = m("set", legacy, "profile=codex-lead")
 check("S2 old profile spelling remains an alias", M.read_state(legacy)[0]["profile"] == "codex", out)
 with patch.dict(os.environ, {"CODEX_THREAD_ID": "fixture"}):
-    check("S2 Codex host requests Codex lead without a fourth mode", "requested GPT-6-Astra high (Codex)" in "\n".join(M.run_config({"profile": "codex"})))
+    check("S2 Codex host requests Codex lead without a fourth mode", "requested GPT-6.2-Astra high (Codex)" in "\n".join(M.run_config({"profile": "codex"})))
 
 # S2 Sonnet substitutes for the Claude slot, including full/focused and final/fallback rules.
 check("S2 gate choices", M.GATES == ("fable+astra", "fable", "sonnet+astra", "opus+astra", "opus") and M.DEFAULT_GATE == "fable+astra")
